@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #c2622a;
+  --color-primary-hover: #a8501f;
+  --color-primary-foreground: #ffffff;
+  --color-accent: #d4845a;
+  --color-background: #faf6f1;
+  --color-surface: #ffffff;
+  --color-border: #e8ddd0;
+  --color-foreground: #2c1810;
+  --color-muted-foreground: #6b5c52;
+  --color-muted: #faf6f1;
+  --color-success: #5a8a5a;
+  --color-dark-section: #1a1a2e;
+  --color-destructive: #b91c1c;
+  --color-card: #ffffff;
+  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Subtle paper texture on cream backgrounds */
+.ghibli-paper {
+  background-color: #faf6f1;
+  background-image: radial-gradient(circle at 1px 1px, rgba(44, 24, 16, 0.03) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Warm amber gradient for heroes and primary buttons */
+.ghibli-gradient-primary {
+  background: linear-gradient(135deg, #c2622a 0%, #d4845a 100%);
+}
+
+.ghibli-gradient-hero {
+  background: linear-gradient(135deg, #c2622a 0%, #d4845a 55%, #d4845a 100%);
+}
+
+/* Falling leaves animation */
+@keyframes ghibli-leaf-fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.85;
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg) translateX(40px);
+    opacity: 0;
+  }
+}
+
+.ghibli-leaves {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ghibli-leaf {
+  position: absolute;
+  top: -5%;
+  width: 14px;
+  height: 18px;
+  background: linear-gradient(135deg, #c2622a, #d4845a);
+  border-radius: 0 80% 0 80%;
+  opacity: 0.75;
+  animation: ghibli-leaf-fall linear infinite;
+}
+
+.ghibli-leaf:nth-child(1) { left: 8%; animation-duration: 14s; animation-delay: 0s; }
+.ghibli-leaf:nth-child(2) { left: 22%; animation-duration: 18s; animation-delay: 2s; width: 10px; height: 13px; }
+.ghibli-leaf:nth-child(3) { left: 45%; animation-duration: 16s; animation-delay: 4s; }
+.ghibli-leaf:nth-child(4) { left: 68%; animation-duration: 20s; animation-delay: 1s; width: 12px; height: 15px; }
+.ghibli-leaf:nth-child(5) { left: 82%; animation-duration: 15s; animation-delay: 6s; }
+.ghibli-leaf:nth-child(6) { left: 55%; animation-duration: 22s; animation-delay: 8s; width: 9px; height: 12px; }
+
+/* Hero corner nature motif */
+.ghibli-hero-motif::before,
+.ghibli-hero-motif::after {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 80px;
+  opacity: 0.12;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 80'%3E%3Cpath d='M10 70 Q30 20 60 40 Q90 60 110 10' fill='none' stroke='%23faf6f1' stroke-width='3'/%3E%3Cellipse cx='25' cy='35' rx='8' ry='12' fill='%23faf6f1' transform='rotate(-30 25 35)'/%3E%3Cellipse cx='95' cy='25' rx='6' ry='10' fill='%23faf6f1' transform='rotate(20 95 25)'/%3E%3C/svg%3E") no-repeat center;
+  pointer-events: none;
+}
+
+.ghibli-hero-motif::before {
+  top: 0;
+  left: 0;
+}
+
+.ghibli-hero-motif::after {
+  top: 0;
+  right: 0;
+  transform: scaleX(-1);
+}
+
+/* Falling petals for messages page corners */
+@keyframes ghibli-petal-corner-fall {
+  0% {
+    transform: translateY(0) rotate(0deg) translateX(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(120px) rotate(180deg) translateX(12px);
+    opacity: 0;
+  }
+}
+
+.ghibli-message-petals {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ghibli-message-petal {
+  position: absolute;
+  width: 10px;
+  height: 12px;
+  background: linear-gradient(135deg, #d4845a, #c2622a);
+  border-radius: 0 70% 0 70%;
+  opacity: 0.6;
+  animation: ghibli-petal-corner-fall ease-in-out infinite;
+}
+
+.ghibli-message-petal--tl:nth-child(1) { top: 8px; left: 12px; animation-duration: 7s; animation-delay: 0s; }
+.ghibli-message-petal--tl:nth-child(2) { top: 4px; left: 36px; animation-duration: 9s; animation-delay: 2s; width: 8px; height: 10px; }
+.ghibli-message-petal--tl:nth-child(3) { top: 16px; left: 24px; animation-duration: 8s; animation-delay: 4s; }
+
+.ghibli-message-petal--tr:nth-child(4) { top: 10px; right: 16px; animation-duration: 8s; animation-delay: 1s; }
+.ghibli-message-petal--tr:nth-child(5) { top: 6px; right: 40px; animation-duration: 10s; animation-delay: 3s; width: 7px; height: 9px; }
+.ghibli-message-petal--tr:nth-child(6) { top: 18px; right: 28px; animation-duration: 7.5s; animation-delay: 5s; }

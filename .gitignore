@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+backend/venv/
+backend/.env
+*.egg-info/
+.env
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.env
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
