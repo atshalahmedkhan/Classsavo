@@ -152,5 +152,9 @@ CORS_ALLOWED_ORIGINS = [
     for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
     if origin.strip()
 ]
+# Allow all Vercel preview/production URLs (e.g. classsavo.vercel.app).
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+]
 CSRF_TRUSTED_ORIGINS = [_normalize_origin(origin) for origin in CSRF_TRUSTED_ORIGINS]
 CORS_ALLOW_CREDENTIALS = True

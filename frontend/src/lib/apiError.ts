@@ -3,9 +3,11 @@ import axios from 'axios';
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      if (error.code === 'ECONNABORTED') {
+        return 'The server is waking up (Render free tier). Wait 30–60 seconds and try again.';
+      }
       if (import.meta.env.PROD) {
-        return `Cannot reach the server at ${apiBase}. Check that Render is running and CORS allows this site.`;
+        return 'Cannot reach the server. Wait a moment and try again — the backend may be starting up.';
       }
       return 'Cannot reach the server. Start the backend with: cd backend && .\\venv\\Scripts\\python.exe manage.py runserver';
     }
