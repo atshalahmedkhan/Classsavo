@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { coursesApi, enrollmentsApi } from '@/api/courses';
+import { wakeBackend } from '@/lib/wakeBackend';
 import type { Course, Enrollment } from '@/types';
 
 export function useInstructorData() {
@@ -10,6 +11,7 @@ export function useInstructorData() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
+      await wakeBackend();
       const [courseData, enrollmentData] = await Promise.all([
         coursesApi.list(),
         enrollmentsApi.list(),

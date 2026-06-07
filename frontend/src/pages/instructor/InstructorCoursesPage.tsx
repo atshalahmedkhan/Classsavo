@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Copy, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { Copy, ImageIcon, MoreVertical, Plus, Trash2 } from 'lucide-react';
 import { CourseThumbnail } from '@/components/CourseThumbnail';
+import { CourseThumbnailCropModal } from '@/components/CourseThumbnailCropModal';
 import { coursesApi } from '@/api/courses';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
 import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +29,11 @@ export function InstructorCoursesPage() {
   const { courses, loading, refresh } = useInstructorData();
   const [searchQuery, setSearchQuery] = useState('');
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [thumbnailCourseId, setThumbnailCourseId] = useState<number | null>(null);
+  const [pendingThumbnailFile, setPendingThumbnailFile] = useState<File | null>(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const filteredCourses = filterCourses(courses, searchQuery);
 
   useEffect(() => {
@@ -68,6 +74,39 @@ export function InstructorCoursesPage() {
   const handleCopyCode = async (code: string) => {
     await navigator.clipboard.writeText(code);
     setOpenMenuId(null);
+  };
+
+  const handleChangeThumbnail = (courseId: number) => {
+    setThumbnailCourseId(courseId);
+    setOpenMenuId(null);
+    thumbnailInputRef.current?.click();
+  };
+
+  const handleThumbnailFileSelect = (fileList: FileList | null) => {
+    if (!fileList?.length || thumbnailCourseId === null) return;
+    setPendingThumbnailFile(fileList[0]);
+    if (thumbnailInputRef.current) thumbnailInputRef.current.value = '';
+  };
+
+  const handleThumbnailCropConfirm = async (file: File) => {
+    if (thumbnailCourseId === null) return;
+    setThumbnailUploading(true);
+    try {
+      await coursesApi.update(thumbnailCourseId, { thumbnail: file });
+      await refresh();
+    } catch (err) {
+      alert(getApiErrorMessage(err, 'Could not update thumbnail. Please try again.'));
+    } finally {
+      setThumbnailUploading(false);
+      setThumbnailCourseId(null);
+      setPendingThumbnailFile(null);
+    }
+  };
+
+  const handleThumbnailCropClose = () => {
+    if (thumbnailUploading) return;
+    setPendingThumbnailFile(null);
+    setThumbnailCourseId(null);
   };
 
   return (
@@ -129,7 +168,7 @@ export function InstructorCoursesPage() {
                         <MoreVertical className="h-4 w-4" />
                       </button>
                       {openMenuId === course.id && (
-                        <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-[#e8ddd0] bg-white py-1 shadow-lg">
+                        <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-[#e8ddd0] bg-white py-1 shadow-lg">
                           <button
                             type="button"
                             onClick={() => {
@@ -139,6 +178,14 @@ export function InstructorCoursesPage() {
                             className="flex w-full px-4 py-2 text-left text-sm text-[#2c1810] hover:bg-[#faf6f1]"
                           >
                             Manage course
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleChangeThumbnail(course.id)}
+                            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#2c1810] hover:bg-[#faf6f1]"
+                          >
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            Change thumbnail
                           </button>
                           {course.access_code && (
                             <button
@@ -186,6 +233,20 @@ export function InstructorCoursesPage() {
           </div>
         )}
       </main>
+
+      <input
+        ref={thumbnailInputRef}
+        type="file"
+        accept=".png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={(e) => handleThumbnailFileSelect(e.target.files)}
+      />
+
+      <CourseThumbnailCropModal
+        file={pendingThumbnailFile}
+        onClose={handleThumbnailCropClose}
+        onConfirm={handleThumbnailCropConfirm}
+      />
     </>
   );
 }
