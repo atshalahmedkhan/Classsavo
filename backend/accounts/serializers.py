@@ -5,10 +5,48 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role')
+        fields = (
+            'id',
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'role',
+            'avatar_url',
+            'recovery_email',
+        )
         read_only_fields = fields
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.avatar.url)
+        return obj.avatar.url
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('username', 'avatar', 'recovery_email')
+
+    def validate_username(self, value):
+        user = self.context['request'].user
+        if User.objects.exclude(pk=user.pk).filter(username=value).exists():
+            raise serializers.ValidationError('A user with that username already exists.')
+        return value
+
+    def validate_avatar(self, value):
+        if value:
+            ext = value.name.rsplit('.', 1)[-1].lower()
+            if ext not in ('png', 'jpg', 'jpeg'):
+                raise serializers.ValidationError('Only PNG and JPG images are allowed.')
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):

@@ -140,9 +140,17 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+def _normalize_origin(origin: str) -> str:
+    value = origin.strip()
+    if value and '://' not in value:
+        return f'https://{value}'
+    return value
+
+
 CORS_ALLOWED_ORIGINS = [
-    origin.strip()
+    _normalize_origin(origin)
     for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
     if origin.strip()
 ]
+CSRF_TRUSTED_ORIGINS = [_normalize_origin(origin) for origin in CSRF_TRUSTED_ORIGINS]
 CORS_ALLOW_CREDENTIALS = True

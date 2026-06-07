@@ -101,7 +101,19 @@ export function StudentCoursePage() {
       <StudentHeader searchPlaceholder="Search courses, mentors..." />
       <main className="flex-1">
         {/* Hero */}
-        <div className="ghibli-hero-motif relative overflow-hidden ghibli-gradient-hero px-6 py-12 text-white">
+        <div
+          className={`ghibli-hero-motif relative overflow-hidden px-6 py-12 text-white ${course.thumbnail_url ? '' : 'ghibli-gradient-hero'}`}
+          style={
+            course.thumbnail_url
+              ? {
+                  backgroundImage: `url(${course.thumbnail_url})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : undefined
+          }
+        >
+          {course.thumbnail_url && <div className="absolute inset-0 bg-[#c2622a]/20" aria-hidden />}
           <div className="absolute inset-0 opacity-20">
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/30 to-transparent" />
           </div>

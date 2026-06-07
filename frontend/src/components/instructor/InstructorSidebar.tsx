@@ -30,7 +30,7 @@ export function InstructorSidebar() {
   const { unreadCount } = useMessages();
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[#e8ddd0] bg-white">
+    <aside className="sticky top-0 flex h-screen min-h-screen w-64 shrink-0 flex-col border-r border-[#e8ddd0] bg-white">
       <div className="border-b border-[#e8ddd0] px-5 py-5">
         <LumioLogo subtitle="Instructor Portal" />
       </div>

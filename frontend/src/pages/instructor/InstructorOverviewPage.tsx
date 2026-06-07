@@ -1,16 +1,51 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, BookOpen, TrendingUp, Users } from 'lucide-react';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
+import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { useInstructorData } from '@/hooks/useInstructorData';
 
 export function InstructorOverviewPage() {
   const { courses, loading, stats } = useInstructorData();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredCourses = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return courses;
+    return courses.filter(
+      (course) =>
+        course.title.toLowerCase().includes(normalized) ||
+        course.description.toLowerCase().includes(normalized),
+    );
+  }, [courses, searchQuery]);
+
+  const searchResults = useMemo<InstructorSearchResult[]>(() => {
+    if (!searchQuery.trim()) return [];
+    return filteredCourses.slice(0, 8).map((course) => ({
+      id: String(course.id),
+      label: course.title,
+      subtitle: [
+        course.access_code ? `Code: ${course.access_code}` : null,
+        `${course.enrollment_count ?? 0} students`,
+        `${course.chapter_count} chapters`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      href: `/instructor/courses/${course.id}`,
+    }));
+  }, [filteredCourses, searchQuery]);
 
   return (
     <>
-      <InstructorHeader title="Overview" breadcrumbs={[{ label: 'Dashboard' }]} />
+      <InstructorHeader
+        title="Overview"
+        breadcrumbs={[{ label: 'Dashboard' }]}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchResults={searchResults}
+      />
       <main className="flex-1 p-6">
         {loading ? (
           <p className="text-[#6b5c52]">Loading dashboard...</p>
@@ -61,9 +96,11 @@ export function InstructorOverviewPage() {
                 </div>
                 {courses.length === 0 ? (
                   <CardDescription>No courses yet. Create your first course to get started.</CardDescription>
+                ) : searchQuery.trim() && filteredCourses.length === 0 ? (
+                  <CardDescription>No courses found matching your search.</CardDescription>
                 ) : (
                   <div className="space-y-3">
-                    {courses.slice(0, 4).map((course) => (
+                    {filteredCourses.slice(0, 4).map((course) => (
                       <Link
                         key={course.id}
                         to={`/instructor/courses/${course.id}`}

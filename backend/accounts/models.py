@@ -12,6 +12,8 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.STUDENT,
     )
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    recovery_email = models.EmailField(blank=True, null=True)
 
     def __str__(self):
         return f'{self.username} ({self.role})'

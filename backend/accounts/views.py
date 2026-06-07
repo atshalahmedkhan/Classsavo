@@ -7,7 +7,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from courses.notification_services import check_assignment_due_notifications
 
-from .serializers import ChangePasswordSerializer, RegisterSerializer, UserSerializer
+from .serializers import (
+    ChangePasswordSerializer,
+    ProfileUpdateSerializer,
+    RegisterSerializer,
+    UserSerializer,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -21,7 +26,7 @@ class RegisterView(generics.CreateAPIView):
         refresh = RefreshToken.for_user(user)
         return Response(
             {
-                'user': UserSerializer(user).data,
+                'user': UserSerializer(user, context={'request': request}).data,
                 'tokens': {
                     'refresh': str(refresh),
                     'access': str(refresh.access_token),
@@ -45,7 +50,7 @@ class LoginView(TokenObtainPairView):
                 password=request.data.get('password'),
             )
             if user:
-                response.data['user'] = UserSerializer(user).data
+                response.data['user'] = UserSerializer(user, context={'request': request}).data
                 if user.is_student:
                     check_assignment_due_notifications(user)
         return response
@@ -56,8 +61,25 @@ class RefreshView(TokenRefreshView):
 
 
 class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={'request': request}).data)
+
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = ProfileUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user, context={'request': request}).data)
 
 
 class ChangePasswordView(APIView):

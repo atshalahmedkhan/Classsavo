@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react';
 import { Download, Filter } from 'lucide-react';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
+import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -7,12 +9,27 @@ import { useInstructorData } from '@/hooks/useInstructorData';
 
 export function InstructorStudentsPage() {
   const { enrollments, courses, loading, stats } = useInstructorData();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredEnrollments = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return enrollments;
+    return enrollments.filter(
+      (enrollment) =>
+        enrollment.student.username.toLowerCase().includes(normalized) ||
+        enrollment.student.email.toLowerCase().includes(normalized) ||
+        enrollment.course.title.toLowerCase().includes(normalized),
+    );
+  }, [enrollments, searchQuery]);
 
   return (
     <>
       <InstructorHeader
         title="Students"
         breadcrumbs={[{ label: 'Dashboard', to: '/instructor' }, { label: 'Students' }]}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchResults={searchResults}
       />
       <main className="flex-1 p-6">
         {loading ? (
@@ -46,6 +63,8 @@ export function InstructorStudentsPage() {
 
               {enrollments.length === 0 ? (
                 <CardDescription>No students enrolled yet. Share your course access codes with students.</CardDescription>
+              ) : searchQuery.trim() && filteredEnrollments.length === 0 ? (
+                <CardDescription>No students found matching your search.</CardDescription>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] text-left text-sm">
@@ -58,7 +77,7 @@ export function InstructorStudentsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {enrollments.map((enrollment) => (
+                      {filteredEnrollments.map((enrollment) => (
                         <tr key={enrollment.id} className="border-b border-[#e8ddd0] even:bg-[#faf6f1]/50">
                           <td className="py-3 pr-4">
                             <div className="flex items-center gap-3">
@@ -87,7 +106,7 @@ export function InstructorStudentsPage() {
                 </div>
               )}
               <p className="mt-4 text-xs text-[#6b5c52]">
-                Showing {enrollments.length} of {enrollments.length} students across {courses.length} courses
+                Showing {filteredEnrollments.length} of {enrollments.length} students across {courses.length} courses
               </p>
             </Card>
           </div>

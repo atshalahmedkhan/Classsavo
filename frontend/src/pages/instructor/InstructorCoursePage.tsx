@@ -354,8 +354,23 @@ export function InstructorCoursePage() {
       <main className="flex-1 p-6">
         <div className="space-y-6">
           {/* Course hero */}
-          <div className="ghibli-hero-motif overflow-hidden rounded-2xl ghibli-gradient-hero p-6 text-white shadow-lg md:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-6">
+          <div
+            className={cn(
+              'ghibli-hero-motif relative overflow-hidden rounded-2xl p-6 text-white shadow-lg md:p-8',
+              !course.thumbnail_url && 'ghibli-gradient-hero',
+            )}
+            style={
+              course.thumbnail_url
+                ? {
+                    backgroundImage: `url(${course.thumbnail_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
+                : undefined
+            }
+          >
+            {course.thumbnail_url && <div className="absolute inset-0 bg-[#c2622a]/20" aria-hidden />}
+            <div className="relative flex flex-wrap items-start justify-between gap-6">
               <div className="max-w-2xl">
                 <Badge className="bg-white/20 text-white">CURRENT COURSE</Badge>
                 <h1 className="mt-3 font-serif text-2xl font-bold md:text-3xl">{course.title}</h1>

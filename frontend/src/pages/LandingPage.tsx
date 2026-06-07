@@ -51,14 +51,42 @@ function Reveal({
   );
 }
 
-function Logo({ className = '' }: { className?: string }) {
+function Logo({
+  className = '',
+  light = false,
+  large = false,
+  hoverGlow = false,
+}: {
+  className?: string;
+  light?: boolean;
+  large?: boolean;
+  hoverGlow?: boolean;
+}) {
+  const orbShadow = light
+    ? 'shadow-[0_0_0_3px_rgba(255,255,255,0.15),0_0_0_4px_rgba(194,65,12,0.2)] group-hover:shadow-[0_0_0_3px_rgba(255,255,255,0.2),0_0_10px_rgba(212,98,42,0.65),0_0_20px_rgba(212,132,90,0.4)]'
+    : 'shadow-[0_0_0_3px_#fdfaf3,0_0_0_4px_rgba(194,65,12,0.2)] group-hover:shadow-[0_0_0_3px_#fdfaf3,0_0_10px_rgba(212,98,42,0.6),0_0_20px_rgba(212,132,90,0.35)]';
+
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div
+      className={`flex items-center gap-2.5 ${hoverGlow ? 'group cursor-default transition-all duration-300 ease-in-out hover:scale-[1.03]' : ''} ${className}`}
+    >
       <div
-        className="h-3 w-3 shrink-0 rounded-full"
-        style={{ background: ORANGE, boxShadow: `0 0 0 3px ${CREAM}, 0 0 0 4px ${ORANGE}33` }}
+        className={`shrink-0 rounded-full transition-all duration-300 ease-in-out ${large ? 'h-3.5 w-3.5' : 'h-3 w-3'} ${hoverGlow ? `group-hover:scale-105 ${orbShadow}` : ''}`}
+        style={{
+          background: ORANGE,
+          ...(hoverGlow
+            ? {}
+            : {
+                boxShadow: light
+                  ? '0 0 0 3px rgba(255,255,255,0.15), 0 0 0 4px rgba(194,65,12,0.2)'
+                  : `0 0 0 3px ${CREAM}, 0 0 0 4px ${ORANGE}33`,
+              }),
+        }}
       />
-      <span className="text-xl font-bold" style={{ fontFamily: SERIF, color: NAVY }}>
+      <span
+        className={`font-bold transition-all duration-300 ease-in-out ${large ? 'text-2xl sm:text-3xl' : 'text-xl'} ${hoverGlow ? 'group-hover:[text-shadow:0_0_12px_rgba(212,98,42,0.55),0_0_24px_rgba(212,132,90,0.35)]' : ''}`}
+        style={{ fontFamily: SERIF, color: light ? '#ffffff' : NAVY }}
+      >
         Lumio
       </span>
     </div>
@@ -149,7 +177,6 @@ function CtaAnimatedBackground() {
 
       {/* Warm amber frost overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#2c1810]/55 via-[#c2622a]/35 to-[#d4845a]/25" />
-      <div className="absolute inset-0 bg-[#1a1a2e]/20 mix-blend-multiply" />
 
       {/* Pulsing moon/sun glow — top right */}
       <motion.div
@@ -297,7 +324,7 @@ export default function LandingPage() {
               <button
                 key={link.label}
                 onClick={() => handleNavClick(link.id)}
-                className="text-sm transition-colors hover:text-stone-900"
+                className="relative text-sm transition-all duration-200 ease-in-out after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#c2622a] after:transition-all after:duration-300 hover:text-stone-900 hover:after:w-full"
                 style={{ color: MUTED }}
               >
                 {link.label}
@@ -305,12 +332,15 @@ export default function LandingPage() {
             ))}
           </nav>
           <div className="hidden items-center justify-end gap-3 md:flex">
-            <Link to="/login" className="px-4 py-2 text-sm font-medium" style={{ color: NAVY }}>
+            <Link
+              to="/login"
+              className="relative px-4 py-2 text-sm font-medium text-[#1c1917] transition-all duration-200 ease-in-out after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-[#c2622a] after:transition-all after:duration-300 hover:text-[#c2622a] hover:after:w-full"
+            >
               Login
             </Link>
             <Link
               to="/register"
-              className="rounded-full px-5 py-2 text-sm font-medium text-white shadow-[0_4px_14px_rgba(194,65,12,0.35)] transition-opacity hover:opacity-90"
+              className="rounded-full px-5 py-2 text-sm font-medium text-white shadow-[0_4px_14px_rgba(194,65,12,0.35)] transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md hover:shadow-amber-300"
               style={{ background: ORANGE_BTN }}
             >
               Get Started
@@ -406,16 +436,15 @@ export default function LandingPage() {
             >
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(194,65,12,0.35)] transition-opacity hover:opacity-90"
+                className="group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(194,65,12,0.35)] transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-amber-200"
                 style={{ background: ORANGE_BTN }}
               >
                 Start as Student
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 transition-all duration-200 ease-in-out group-hover:translate-x-1" />
               </Link>
               <Link
                 to="/register"
-                className="rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-semibold transition-colors hover:border-stone-400"
-                style={{ color: NAVY }}
+                className="rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-semibold text-[#1c1917] transition-all duration-200 ease-in-out hover:border-[#c2622a] hover:bg-[#c2622a] hover:text-white"
               >
                 Start as Instructor
               </Link>
@@ -677,60 +706,48 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA ── */}
-      <section className="px-5 py-16 lg:px-8">
-        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] shadow-[0_8px_40px_rgba(0,0,0,0.15)]">
-          <div className="relative aspect-[3/1] min-h-[280px] w-full">
-            <CtaAnimatedBackground />
-          </div>
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center">
-            <Reveal>
-              <h2
-                className="mb-3 text-2xl font-bold text-white sm:text-3xl lg:text-4xl"
-                style={{ fontFamily: SERIF }}
+      {/* ── CTA + Footer ── */}
+      <section className="relative min-h-[500px] w-full overflow-hidden py-32">
+        <div className="absolute inset-0">
+          <CtaAnimatedBackground />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#2c1810]/30 to-[#2c1810]/20" />
+        <div className="relative z-10 flex flex-col items-center justify-center px-6 text-center">
+          <Reveal>
+            <h2
+              className="mb-3 text-2xl font-bold text-white sm:text-3xl lg:text-4xl"
+              style={{ fontFamily: SERIF }}
+            >
+              Ready to experience Lumio?
+            </h2>
+            <p className="mx-auto mb-8 max-w-md text-sm text-white/85 sm:text-base">
+              Join as a student or set up your first course as an instructor today.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(0,0,0,0.2)] transition-opacity hover:opacity-90"
+                style={{ background: ORANGE_BTN }}
               >
-                Ready to experience Lumio?
-              </h2>
-              <p className="mx-auto mb-8 max-w-md text-sm text-white/85 sm:text-base">
-                Join as a student or set up your first course as an instructor today.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  to="/register"
-                  className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(0,0,0,0.2)] transition-opacity hover:opacity-90"
-                  style={{ background: ORANGE_BTN }}
-                >
-                  Get Started as Student
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  to="/register"
-                  className="rounded-full border-2 border-white px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-                >
-                  Get Started as Instructor
-                </Link>
-              </div>
-            </Reveal>
+                Get Started as Student
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/register"
+                className="rounded-full border-2 border-white/90 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Get Started as Instructor
+              </Link>
+            </div>
+          </Reveal>
+          <div className="mt-28 flex max-w-4xl flex-col items-center text-center">
+            <Logo className="mb-4" light large hoverGlow />
+            <p className="text-sm text-white/80">
+              Built for students. Designed for educators.
+            </p>
           </div>
         </div>
       </section>
-
-      {/* ── Footer ── */}
-      <footer className="px-5 py-14 lg:px-8">
-        <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-          <Logo className="mb-4" />
-          <p className="mb-5 text-sm" style={{ color: MUTED }}>
-            Built for students. Designed for educators.
-          </p>
-          <p className="mb-5 text-xs" style={{ color: '#a8a29e' }}>
-            Django · React · Plate.js · Tailwind CSS
-          </p>
-          <div className="mb-5 h-px w-full max-w-xs bg-stone-200" />
-          <p className="text-xs" style={{ color: '#a8a29e' }}>
-            Powered by Lumio — Modern Learning for Everyone
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

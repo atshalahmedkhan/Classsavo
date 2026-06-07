@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { ChatPanel } from '@/components/ChatPanel';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
+import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
 import { Card } from '@/components/ui/Card';
 import { useMessages } from '@/hooks/useMessages';
 import type { User } from '@/types';
@@ -17,6 +18,7 @@ export function InstructorMessagesPage() {
   const userIdParam = searchParams.get('user');
   const { conversations, loading, refresh } = useMessages();
   const [resolvedUser, setResolvedUser] = useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!userIdParam) {
@@ -41,6 +43,20 @@ export function InstructorMessagesPage() {
 
   const selectedUser = useMemo(() => resolvedUser, [resolvedUser]);
 
+  const filteredConversations = useMemo(() => {
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return conversations;
+    return conversations.filter((conv) => {
+      const name = displayName(conv.user).toLowerCase();
+      return (
+        name.includes(normalized) ||
+        conv.user.username.toLowerCase().includes(normalized) ||
+        conv.user.email.toLowerCase().includes(normalized) ||
+        conv.last_message.toLowerCase().includes(normalized)
+      );
+    });
+  }, [conversations, searchQuery]);
+
   const selectUser = (userId: number, courseId?: number | null) => {
     const params: Record<string, string> = { user: String(userId) };
     if (courseId) params.course = String(courseId);
@@ -54,6 +70,10 @@ export function InstructorMessagesPage() {
           { label: 'Dashboard', to: '/instructor' },
           { label: 'Messages' },
         ]}
+        searchPlaceholder="Search conversations..."
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchResults={searchResults}
       />
       <main className="flex-1 p-6">
         <div className="grid h-[calc(100vh-12rem)] gap-4 lg:grid-cols-3">
@@ -66,8 +86,10 @@ export function InstructorMessagesPage() {
                 <p className="p-4 text-sm text-[#6b5c52]">Loading...</p>
               ) : conversations.length === 0 ? (
                 <p className="p-4 text-sm text-[#6b5c52]">No student messages yet.</p>
+              ) : searchQuery.trim() && filteredConversations.length === 0 ? (
+                <p className="p-4 text-sm text-[#6b5c52]">No conversations found matching your search.</p>
               ) : (
-                conversations.map((conv) => (
+                filteredConversations.map((conv) => (
                   <button
                     key={conv.user.id}
                     type="button"
