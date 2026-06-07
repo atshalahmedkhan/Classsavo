@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Camera, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Camera, Copy, MoreVertical, Plus, Trash2 } from 'lucide-react';
 import { coursesApi } from '@/api/courses';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
 import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
@@ -22,9 +22,24 @@ function filterCourses(courses: Course[], query: string): Course[] {
 }
 
 export function InstructorCoursesPage() {
+  const navigate = useNavigate();
   const { courses, loading, refresh } = useInstructorData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const filteredCourses = filterCourses(courses, searchQuery);
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    if (openMenuId !== null) {
+      document.addEventListener('mousedown', onClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [openMenuId]);
 
   const searchResults = useMemo<InstructorSearchResult[]>(() => {
     if (!searchQuery.trim()) return [];
@@ -44,8 +59,14 @@ export function InstructorCoursesPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this course and all its chapters?')) return;
+    setOpenMenuId(null);
     await coursesApi.delete(id);
     await refresh();
+  };
+
+  const handleCopyCode = async (code: string) => {
+    await navigator.clipboard.writeText(code);
+    setOpenMenuId(null);
   };
 
   return (
@@ -98,9 +119,52 @@ export function InstructorCoursesPage() {
                 <div className="p-6">
                   <div className="flex items-start justify-between">
                     <Badge className="bg-[#c2622a]/10 text-[#c2622a]">Course</Badge>
-                    <button type="button" className="text-[#6b5c52] hover:text-[#6b5c52]">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                    <div
+                      className="relative"
+                      ref={openMenuId === course.id ? menuRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        aria-label="Course options"
+                        onClick={() =>
+                          setOpenMenuId((prev) => (prev === course.id ? null : course.id))
+                        }
+                        className="rounded-lg p-1 text-[#6b5c52] hover:bg-[#faf6f1] hover:text-[#2c1810]"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                      {openMenuId === course.id && (
+                        <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-[#e8ddd0] bg-white py-1 shadow-lg">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              navigate(`/instructor/courses/${course.id}`);
+                            }}
+                            className="flex w-full px-4 py-2 text-left text-sm text-[#2c1810] hover:bg-[#faf6f1]"
+                          >
+                            Manage course
+                          </button>
+                          {course.access_code && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCode(course.access_code!)}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#2c1810] hover:bg-[#faf6f1]"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                              Copy access code
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(course.id)}
+                            className="flex w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Delete course
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="mt-3">{course.title}</CardTitle>
                   <CardDescription className="mt-2 line-clamp-2">{course.description}</CardDescription>

@@ -292,7 +292,12 @@ export function InstructorHeader({
               </div>
             )}
           </div>
-          <button type="button" className="rounded-full p-2 text-[#6b5c52] hover:bg-[#faf6f1]">
+          <button
+            type="button"
+            aria-label="Help and support"
+            onClick={() => navigate('/instructor/help')}
+            className="rounded-full p-2 text-[#6b5c52] hover:bg-[#faf6f1]"
+          >
             <HelpCircle className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2 rounded-full border border-[#e8ddd0] py-1 pl-1 pr-3">

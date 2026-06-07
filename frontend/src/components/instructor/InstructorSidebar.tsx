@@ -81,13 +81,18 @@ export function InstructorSidebar() {
           <Users className="h-4 w-4" />
           Students
         </NavLink>
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-[#6b5c52] hover:text-[#2c1810]"
+        <NavLink
+          to="/instructor/help"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium',
+              isActive ? 'text-[#c2622a]' : 'text-[#6b5c52] hover:text-[#2c1810]',
+            )
+          }
         >
           <LifeBuoy className="h-4 w-4" />
           Support
-        </button>
+        </NavLink>
         <button
           type="button"
           onClick={logout}

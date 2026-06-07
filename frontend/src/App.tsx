@@ -25,6 +25,7 @@ import { InstructorStudentsPage } from '@/pages/instructor/InstructorStudentsPag
 import { InstructorAssignmentsPage } from '@/pages/instructor/InstructorAssignmentsPage';
 import { InstructorSettingsPage } from '@/pages/instructor/InstructorSettingsPage';
 import { InstructorMessagesPage } from '@/pages/instructor/InstructorMessagesPage';
+import { InstructorHelpPage } from '@/pages/instructor/InstructorHelpPage';
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
                 <Route path="assignments" element={<InstructorAssignmentsPage />} />
                 <Route path="settings" element={<InstructorSettingsPage />} />
                 <Route path="messages" element={<InstructorMessagesPage />} />
+                <Route path="help" element={<InstructorHelpPage />} />
                 <Route path="dashboard" element={<Navigate to="/instructor" replace />} />
               </Route>
             </Route>
