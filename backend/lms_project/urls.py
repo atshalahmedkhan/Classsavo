@@ -24,7 +24,8 @@ urlpatterns = [
     path('api/', include('courses.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += [
-        path(f'{settings.MEDIA_URL.lstrip("/")}<path:path>', media_serve_inline),
-    ]
+# Serve uploaded files (avatars, course thumbnails, chapter files).
+# Required in production — DEBUG-only serving breaks live uploads on Render/Vercel.
+urlpatterns += [
+    path(f'{settings.MEDIA_URL.lstrip("/")}<path:path>', media_serve_inline),
+]
