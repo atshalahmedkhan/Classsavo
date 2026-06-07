@@ -86,7 +86,7 @@ export function InstructorHeader({
   const searchRef = useRef<HTMLDivElement>(null);
 
   const hasSearchQuery = Boolean(searchQuery?.trim());
-  const showSearchDropdown = searchOpen && hasSearchQuery && onSearchChange;
+  const showSearchDropdown = searchOpen && hasSearchQuery && Boolean(onSearchChange);
 
   const displayName = user?.first_name
     ? `${user.first_name} ${user.last_name}`.trim()

@@ -22,6 +22,16 @@ export function InstructorStudentsPage() {
     );
   }, [enrollments, searchQuery]);
 
+  const searchResults = useMemo<InstructorSearchResult[]>(() => {
+    if (!searchQuery.trim()) return [];
+    return filteredEnrollments.slice(0, 8).map((enrollment) => ({
+      id: String(enrollment.id),
+      label: enrollment.student.username,
+      subtitle: `${enrollment.course.title} · ${enrollment.student.email}`,
+      href: `/instructor/courses/${enrollment.course.id}`,
+    }));
+  }, [filteredEnrollments, searchQuery]);
+
   return (
     <>
       <InstructorHeader

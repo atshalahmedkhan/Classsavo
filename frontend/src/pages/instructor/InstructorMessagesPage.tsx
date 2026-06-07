@@ -57,6 +57,20 @@ export function InstructorMessagesPage() {
     });
   }, [conversations, searchQuery]);
 
+  const searchResults = useMemo<InstructorSearchResult[]>(() => {
+    if (!searchQuery.trim()) return [];
+    return filteredConversations.slice(0, 8).map((conv) => {
+      const params = new URLSearchParams({ user: String(conv.user.id) });
+      if (conv.course_id) params.set('course', String(conv.course_id));
+      return {
+        id: `${conv.user.id}-${conv.course_id ?? 'none'}`,
+        label: displayName(conv.user),
+        subtitle: conv.last_message,
+        href: `/instructor/messages?${params.toString()}`,
+      };
+    });
+  }, [filteredConversations, searchQuery]);
+
   const selectUser = (userId: number, courseId?: number | null) => {
     const params: Record<string, string> = { user: String(userId) };
     if (courseId) params.course = String(courseId);

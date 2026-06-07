@@ -9,6 +9,8 @@ export interface User {
   first_name: string;
   last_name: string;
   role: UserRole;
+  avatar_url?: string | null;
+  recovery_email?: string | null;
 }
 
 export interface AuthTokens {
