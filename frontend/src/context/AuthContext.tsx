@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { authApi } from '@/api/auth';
+import { wakeBackend } from '@/lib/wakeBackend';
 import type { RegisterPayload, User, UserRole } from '@/types';
 
 interface AuthContextValue {
@@ -41,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
+      wakeBackend();
+
       const storedUser = localStorage.getItem('user');
       const accessToken = localStorage.getItem('access_token');
 
@@ -50,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        await wakeBackend();
         const currentUser = await authApi.me();
         setUser(currentUser);
         localStorage.setItem('user', JSON.stringify(currentUser));

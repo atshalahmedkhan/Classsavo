@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Copy, Check, Clock, GripVertical, MessageCircle, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { formatDuration } from '@/lib/readingTime';
 import type { Value } from '@udecode/plate';
 import type { Chapter, Course, ChapterFile, CourseProgressReport, User } from '@/types';
@@ -306,6 +307,17 @@ export function InstructorCoursePage() {
     handleDragEnd();
   };
 
+  const handleOpenNewChapter = () => {
+    setEditingChapter(null);
+    setForm({ title: '', content: emptyContent, order: chapters.length, is_public: false });
+    setAssignment({ instructions: '', dueDate: '' });
+    setAssignmentError('');
+    setAssignmentSuccess('');
+    setShowForm(true);
+    setFormError('');
+    setFormSuccess('');
+  };
+
   if (loading) {
     return (
       <>
@@ -336,16 +348,7 @@ export function InstructorCoursePage() {
           <Button
             size="sm"
             className="ghibli-gradient-primary hover:brightness-95"
-            onClick={() => {
-              setEditingChapter(null);
-              setForm({ title: '', content: emptyContent, order: chapters.length, is_public: false });
-              setAssignment({ instructions: '', dueDate: '' });
-              setAssignmentError('');
-              setAssignmentSuccess('');
-              setShowForm(true);
-              setFormError('');
-              setFormSuccess('');
-            }}
+            onClick={handleOpenNewChapter}
           >
             <Plus className="mr-1 h-4 w-4" /> Add New Chapter
           </Button>
@@ -362,7 +365,7 @@ export function InstructorCoursePage() {
             style={
               course.thumbnail_url
                 ? {
-                    backgroundImage: `url(${course.thumbnail_url})`,
+                    backgroundImage: `url(${normalizeMediaUrl(course.thumbnail_url)})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                   }
@@ -398,29 +401,38 @@ export function InstructorCoursePage() {
             </div>
           </div>
 
-          <div className="flex gap-2 border-b border-[#e8ddd0]">
-            <button
-              type="button"
-              onClick={() => setActiveTab('curriculum')}
-              className={`border-b-2 px-4 py-2 text-sm font-medium ${
-                activeTab === 'curriculum'
-                  ? 'border-[#c2622a] text-[#c2622a]'
-                  : 'border-transparent text-[#6b5c52] hover:text-[#2c1810]'
-              }`}
+          <div className="flex items-center justify-between gap-4 border-b border-[#e8ddd0]">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('curriculum')}
+                className={`border-b-2 px-4 py-2 text-sm font-medium ${
+                  activeTab === 'curriculum'
+                    ? 'border-[#c2622a] text-[#c2622a]'
+                    : 'border-transparent text-[#6b5c52] hover:text-[#2c1810]'
+                }`}
+              >
+                Curriculum
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('progress')}
+                className={`border-b-2 px-4 py-2 text-sm font-medium ${
+                  activeTab === 'progress'
+                    ? 'border-[#c2622a] text-[#c2622a]'
+                    : 'border-transparent text-[#6b5c52] hover:text-[#2c1810]'
+                }`}
+              >
+                Student Progress
+              </button>
+            </div>
+            <Button
+              size="sm"
+              className="mb-1 rounded-full bg-[#c2622a] text-white ghibli-gradient-primary hover:brightness-95"
+              onClick={handleOpenNewChapter}
             >
-              Curriculum
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('progress')}
-              className={`border-b-2 px-4 py-2 text-sm font-medium ${
-                activeTab === 'progress'
-                  ? 'border-[#c2622a] text-[#c2622a]'
-                  : 'border-transparent text-[#6b5c52] hover:text-[#2c1810]'
-              }`}
-            >
-              Student Progress
-            </button>
+              <Plus className="mr-1 h-4 w-4" /> Add New Chapter
+            </Button>
           </div>
 
           {activeTab === 'progress' && (
@@ -578,11 +590,14 @@ export function InstructorCoursePage() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">Due Date</label>
-                      <Input
+                      <label className="mb-1 block font-serif text-sm font-medium text-[#2c1810]">
+                        Due Date
+                      </label>
+                      <input
                         type="datetime-local"
                         value={assignment.dueDate}
                         onChange={(e) => setAssignment({ ...assignment, dueDate: e.target.value })}
+                        className="w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1] px-4 py-3 text-[#2c1810] focus:outline-none focus:ring-2 focus:ring-[#c2622a]/40"
                       />
                     </div>
                     <Button
@@ -623,7 +638,7 @@ export function InstructorCoursePage() {
             <Card
               key={chapter.id}
               className={cn(
-                'border-[#e8ddd0] shadow-sm transition-all',
+                'border-[#e8ddd0] border-l-4 border-l-[#c2622a] shadow-sm transition-all duration-200 hover:border-[#c2622a]/60 hover:shadow-md',
                 draggedChapterId === chapter.id && 'opacity-50',
                 dragOverIndex === index &&
                   draggedChapterId !== chapter.id &&
@@ -648,11 +663,12 @@ export function InstructorCoursePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge className="bg-[#faf6f1] text-[#6b5c52]">CH {String(index + 1).padStart(2, '0')}</Badge>
-                    <CardTitle className="text-base">{chapter.title}</CardTitle>
+                    <CardTitle className="text-base font-semibold">{chapter.title}</CardTitle>
                   </div>
-                  <CardDescription className="mt-1">
-                    Order {chapter.order}
-                    {(chapter.files?.length ?? 0) > 0 && ` · ${chapter.files!.length} resources`}
+                  <CardDescription className="mt-1 text-[#6b5c52]">
+                    Chapter {String(index + 1).padStart(2, '0')}
+                    {(chapter.files?.length ?? 0) > 0 &&
+                      ` · ${chapter.files!.length} resource${chapter.files!.length === 1 ? '' : 's'}`}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-3">
@@ -668,8 +684,8 @@ export function InstructorCoursePage() {
                       }
                       className={`mt-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                         chapter.is_public
-                          ? 'bg-[#d4845a]/20 text-[#c2622a] hover:bg-[#d4845a]/30'
-                          : 'bg-[#faf6f1] text-[#6b5c52] hover:bg-[#d4845a]/10 hover:text-[#c2622a]'
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-[#e8ddd0] text-[#6b5c52] hover:bg-[#d4845a]/15 hover:text-[#2c1810]'
                       }`}
                     >
                       {chapter.is_public ? 'PUBLIC' : 'DRAFT'}

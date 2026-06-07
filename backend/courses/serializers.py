@@ -22,9 +22,6 @@ class ChapterFileSerializer(serializers.ModelSerializer):
     def get_file_url(self, obj):
         if not obj.file:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.file.url)
         return obj.file.url
 
     def get_has_pdf_preview(self, obj):
@@ -58,9 +55,6 @@ class CourseSerializer(serializers.ModelSerializer):
     def get_thumbnail_url(self, obj):
         if not obj.thumbnail:
             return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.thumbnail.url)
         return obj.thumbnail.url
 
     def get_access_code(self, obj):

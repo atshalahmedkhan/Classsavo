@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import type { Chapter, Course } from '@/types';
 
@@ -106,7 +107,7 @@ export function StudentCoursePage() {
           style={
             course.thumbnail_url
               ? {
-                  backgroundImage: `url(${course.thumbnail_url})`,
+                  backgroundImage: `url(${normalizeMediaUrl(course.thumbnail_url)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                 }

@@ -7,6 +7,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 
 interface ProfileUser {
   id: number;
@@ -192,7 +193,7 @@ export function InstructorSettingsPage() {
               >
                 {displayUser?.avatar_url ? (
                   <img
-                    src={displayUser.avatar_url}
+                    src={normalizeMediaUrl(displayUser.avatar_url)}
                     alt="Profile avatar"
                     className="h-full w-full object-cover"
                   />

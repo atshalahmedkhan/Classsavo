@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Camera, Copy, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { Copy, MoreVertical, Plus, Trash2 } from 'lucide-react';
+import { CourseThumbnail } from '@/components/CourseThumbnail';
 import { coursesApi } from '@/api/courses';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
 import type { InstructorSearchResult } from '@/components/instructor/InstructorHeader';
@@ -105,17 +106,11 @@ export function InstructorCoursesPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredCourses.map((course) => (
               <Card key={course.id} className="overflow-hidden border-[#e8ddd0] p-0 shadow-sm">
-                {course.thumbnail_url ? (
-                  <img
-                    src={course.thumbnail_url}
-                    alt=""
-                    className="h-40 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-40 w-full items-center justify-center bg-gradient-to-br from-[#c2622a] to-[#d4845a]">
-                    <Camera className="h-6 w-6 text-white/80" />
-                  </div>
-                )}
+                <CourseThumbnail
+                  url={course.thumbnail_url}
+                  className="h-40 w-full"
+                  showCameraFallback
+                />
                 <div className="p-6">
                   <div className="flex items-start justify-between">
                     <Badge className="bg-[#c2622a]/10 text-[#c2622a]">Course</Badge>
