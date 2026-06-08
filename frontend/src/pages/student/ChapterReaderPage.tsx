@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle2, ClipboardList, Download, FileText, Loader2, Upload } from 'lucide-react';
+import { CheckCircle2, ClipboardList, FileText, Loader2, Upload } from 'lucide-react';
 import client from '@/api/client';
 import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { AIChatPanel } from '@/components/AIChatPanel';
 import { CourseMaterialPanel } from '@/components/CourseMaterialPanel';
 import { DueDateBadge } from '@/components/DueDateBadge';
+import { SubmissionFilePreview } from '@/components/SubmissionFilePreview';
 import { StartCourseCard } from '@/components/student/StartCourseCard';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { PlateViewer } from '@/components/PlateViewer';
@@ -18,7 +19,6 @@ import { useChapterReadingTimer } from '@/hooks/useChapterReadingTimer';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { isSyllabusChapter, partitionChapters } from '@/lib/chapterUtils';
-import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { formatDuration } from '@/lib/readingTime';
 import type { Chapter, FirstChapter, User } from '@/types';
 
@@ -52,11 +52,6 @@ function formatSubmissionTimestamp(iso: string): string {
     minute: '2-digit',
   });
   return formatted;
-}
-
-function isPdfUrl(url: string): boolean {
-  const path = url.split('?')[0].toLowerCase();
-  return path.endsWith('.pdf');
 }
 
 export function ChapterReaderPage() {
@@ -460,29 +455,11 @@ export function ChapterReaderPage() {
                           </p>
                         </div>
                         {submission.submitted_image_url && (
-                          <div className="space-y-3">
-                            {isPdfUrl(submission.submitted_image_url) ? (
-                              <iframe
-                                title="Submitted assignment"
-                                src={normalizeMediaUrl(submission.submitted_image_url)}
-                                className="h-96 w-full rounded-xl border border-[#e8ddd0] bg-white"
-                              />
-                            ) : (
-                              <img
-                                src={normalizeMediaUrl(submission.submitted_image_url)}
-                                alt="Your submission"
-                                className="max-h-96 w-full rounded-xl border border-[#e8ddd0] object-contain"
-                              />
-                            )}
-                            <a
-                              href={normalizeMediaUrl(submission.submitted_image_url)}
-                              download
-                              className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
-                            >
-                              <Download className="h-4 w-4" />
-                              Download submission
-                            </a>
-                          </div>
+                          <SubmissionFilePreview
+                            submissionId={submission.id}
+                            fileType="submitted"
+                            downloadLabel="Download submission"
+                          />
                         )}
                       </div>
 
@@ -491,21 +468,11 @@ export function ChapterReaderPage() {
                           <CardTitle className="text-lg text-[#2c1810]">Instructor Feedback</CardTitle>
                           <div className="mt-4 space-y-4">
                             {submission.annotated_image_url && (
-                              <div className="space-y-2">
-                                <img
-                                  src={normalizeMediaUrl(submission.annotated_image_url)}
-                                  alt="Annotated feedback"
-                                  className="w-full rounded-xl border border-[#e8ddd0] object-contain"
-                                />
-                                <a
-                                  href={normalizeMediaUrl(submission.annotated_image_url)}
-                                  download
-                                  className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
-                                >
-                                  <Download className="h-4 w-4" />
-                                  Download annotated version
-                                </a>
-                              </div>
+                              <SubmissionFilePreview
+                                submissionId={submission.id}
+                                fileType="annotated"
+                                downloadLabel="Download annotated version"
+                              />
                             )}
                             {submission.instructor_remarks?.trim() && (
                               <p className="font-serif text-base text-[#2c1810] whitespace-pre-wrap">

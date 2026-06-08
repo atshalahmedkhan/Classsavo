@@ -20,7 +20,9 @@ from .views import (
     ChapterViewSet,
     CourseViewSet,
     EnrollmentViewSet,
+    SubmissionAnnotatedFileView,
     SubmissionFeedbackView,
+    SubmissionSubmittedFileView,
 )
 
 router = DefaultRouter()
@@ -41,5 +43,15 @@ urlpatterns = [
     path('messages/<int:user_id>/read/', MessageMarkReadView.as_view(), name='message-mark-read'),
     path('courses/ai-chat/', AIChatView.as_view(), name='course-ai-chat'),
     path('submissions/<int:pk>/feedback/', SubmissionFeedbackView.as_view(), name='submission-feedback'),
+    path(
+        'submissions/<int:pk>/submitted-file/',
+        SubmissionSubmittedFileView.as_view(),
+        name='submission-submitted-file',
+    ),
+    path(
+        'submissions/<int:pk>/annotated-file/',
+        SubmissionAnnotatedFileView.as_view(),
+        name='submission-annotated-file',
+    ),
     path('', include(router.urls)),
 ]

@@ -67,6 +67,29 @@ def _instructor_owns_chapter(user, chapter):
     return chapter.course.instructor == user
 
 
+def _user_can_access_submission(user, submission):
+    chapter = submission.chapter
+    if user.is_instructor and chapter.course.instructor == user:
+        return True
+    if user.is_student and submission.student_id == user.id:
+        return _student_can_access_chapter(user, chapter)
+    return False
+
+
+def _file_field_http_response(file_field, download_name: str | None = None):
+    if not file_field:
+        raise Http404('File not found.')
+    name = download_name or os.path.basename(file_field.name)
+    content_type, _ = mimetypes.guess_type(name)
+    content_type = content_type or 'application/octet-stream'
+    with file_field.open('rb') as file_handle:
+        data = file_handle.read()
+    response = HttpResponse(data, content_type=content_type)
+    response['Content-Disposition'] = f'inline; filename="{name}"'
+    response['Cache-Control'] = 'private, max-age=3600'
+    return response
+
+
 class CourseViewSet(viewsets.ModelViewSet):
     permission_classes = [CoursePermission]
 
@@ -479,6 +502,34 @@ class SubmissionFeedbackView(APIView):
 
         output = AssignmentSubmissionSerializer(submission, context={'request': request})
         return Response(output.data)
+
+
+class SubmissionSubmittedFileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        submission = get_object_or_404(
+            AssignmentSubmission.objects.select_related('chapter__course', 'student'),
+            pk=pk,
+        )
+        if not _user_can_access_submission(request.user, submission):
+            raise PermissionDenied('You do not have access to this submission.')
+        return _file_field_http_response(submission.submitted_image)
+
+
+class SubmissionAnnotatedFileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        submission = get_object_or_404(
+            AssignmentSubmission.objects.select_related('chapter__course', 'student'),
+            pk=pk,
+        )
+        if not _user_can_access_submission(request.user, submission):
+            raise PermissionDenied('You do not have access to this submission.')
+        if not submission.annotated_image:
+            raise Http404('Annotated file not found.')
+        return _file_field_http_response(submission.annotated_image)
 
 
 class ChapterFileViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):

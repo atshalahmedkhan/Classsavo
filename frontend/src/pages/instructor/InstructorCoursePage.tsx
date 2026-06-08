@@ -9,6 +9,7 @@ import { progressApi } from '@/api/progress';
 import { ChapterFileUpload } from '@/components/ChapterFileUpload';
 import { DueDateBadge } from '@/components/DueDateBadge';
 import { GhibliDateTimePicker } from '@/components/GhibliDateTimePicker';
+import { SubmissionFilePreview } from '@/components/SubmissionFilePreview';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
 import { PlateEditor } from '@/components/PlateEditor';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +28,6 @@ import {
   Plus,
   Trash2,
   Upload,
-  Download,
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -72,10 +72,6 @@ function formatSubmissionTimestamp(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-function isPdfUrl(url: string): boolean {
-  return url.split('?')[0].toLowerCase().endsWith('.pdf');
 }
 
 function getChapterFormTitle(editing: boolean, chapterType: ChapterType) {
@@ -1435,29 +1431,12 @@ export function InstructorCoursePage() {
             ) : (
               <div className="mt-4 space-y-5">
                 {reviewingSubmission.submitted_image_url && (
-                  <div className="space-y-2">
-                    {isPdfUrl(reviewingSubmission.submitted_image_url) ? (
-                      <iframe
-                        title="Student submission"
-                        src={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
-                        className="h-96 w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1]"
-                      />
-                    ) : (
-                      <img
-                        src={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
-                        alt="Student submission"
-                        className="w-full rounded-xl border border-[#e8ddd0] object-contain"
-                      />
-                    )}
-                    <a
-                      href={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
-                      download
-                      className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download submission
-                    </a>
-                  </div>
+                  <SubmissionFilePreview
+                    submissionId={reviewingSubmission.id}
+                    fileType="submitted"
+                    downloadLabel="Download submission"
+                    className="h-96"
+                  />
                 )}
                 <div>
                   <input
