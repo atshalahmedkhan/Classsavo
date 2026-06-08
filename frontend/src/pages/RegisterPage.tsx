@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { AuthPageBackground } from '@/components/AuthPageBackground';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -42,16 +43,8 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="ghibli-paper relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8">
-      <div className="ghibli-leaves" aria-hidden="true">
-        <span className="ghibli-leaf" />
-        <span className="ghibli-leaf" />
-        <span className="ghibli-leaf" />
-        <span className="ghibli-leaf" />
-        <span className="ghibli-leaf" />
-        <span className="ghibli-leaf" />
-      </div>
-      <Card className="relative z-10 w-full max-w-lg border-[#e8ddd0] shadow-sm">
+    <AuthPageBackground className="py-8">
+      <Card className="mx-auto w-full max-w-lg border-[#e8ddd0]/80 bg-white/90 shadow-[0_8px_32px_rgba(194,98,42,0.12)] backdrop-blur-md">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="flex items-center gap-2">
             <div
@@ -145,6 +138,6 @@ export function RegisterPage() {
           </Link>
         </p>
       </Card>
-    </div>
+    </AuthPageBackground>
   );
 }
