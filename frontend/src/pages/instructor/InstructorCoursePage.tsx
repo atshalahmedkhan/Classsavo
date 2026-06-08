@@ -22,6 +22,25 @@ import type { Chapter, Course, ChapterFile, CourseProgressReport, User } from '@
 
 const emptyContent: Value = [{ type: 'p', children: [{ text: '' }] }];
 
+function getChapterFormTitle(editing: boolean, chapterType: 'reading' | 'assignment') {
+  if (editing) {
+    return chapterType === 'assignment' ? 'Edit Assignments' : 'Edit Reading';
+  }
+  return chapterType === 'assignment' ? 'Add New Assignments' : 'Add New Reading';
+}
+
+function getChapterSubmitLabel(
+  editing: boolean,
+  saving: boolean,
+  chapterType: 'reading' | 'assignment',
+) {
+  if (saving) return 'Saving...';
+  if (editing) {
+    return chapterType === 'assignment' ? 'Update Assignments' : 'Update Reading';
+  }
+  return chapterType === 'assignment' ? 'Add New Assignments' : 'Add New Reading';
+}
+
 export function InstructorCoursePage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
@@ -360,9 +379,15 @@ export function InstructorCoursePage() {
     handleDragEnd();
   };
 
-  const handleOpenNewChapter = () => {
+  const handleOpenNewChapter = (chapterType: 'reading' | 'assignment' = 'reading') => {
     setEditingChapter(null);
-    setForm({ title: '', content: emptyContent, order: chapters.length, is_public: false, chapter_type: 'reading' });
+    setForm({
+      title: '',
+      content: emptyContent,
+      order: chapters.length,
+      is_public: false,
+      chapter_type: chapterType,
+    });
     setAssignment({ instructions: '', dueDate: '' });
     setAssignmentError('');
     setAssignmentSuccess('');
@@ -398,13 +423,23 @@ export function InstructorCoursePage() {
           { label: course.title },
         ]}
         actions={
-          <Button
-            size="sm"
-            className="ghibli-gradient-primary hover:brightness-95"
-            onClick={handleOpenNewChapter}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Add New Chapter
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="hover:border-[#c2622a]/40"
+              onClick={() => handleOpenNewChapter('reading')}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add New Reading
+            </Button>
+            <Button
+              size="sm"
+              className="ghibli-gradient-primary hover:brightness-95"
+              onClick={() => handleOpenNewChapter('assignment')}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Add New Assignments
+            </Button>
+          </div>
         }
       />
       <main className="flex-1 p-6">
@@ -547,13 +582,23 @@ export function InstructorCoursePage() {
                 Student Progress
               </button>
             </div>
-            <Button
-              size="sm"
-              className="mb-1 rounded-full bg-[#c2622a] text-white ghibli-gradient-primary hover:brightness-95"
-              onClick={handleOpenNewChapter}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Add New Chapter
-            </Button>
+            <div className="mb-1 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="hover:border-[#c2622a]/40"
+                onClick={() => handleOpenNewChapter('reading')}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add New Reading
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-full ghibli-gradient-primary hover:brightness-95"
+                onClick={() => handleOpenNewChapter('assignment')}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add New Assignments
+              </Button>
+            </div>
           </div>
 
           {activeTab === 'progress' && (
@@ -647,10 +692,9 @@ export function InstructorCoursePage() {
 
         {showForm && (
           <Card className="mb-6 border-[#e8ddd0] shadow-sm">
-            <CardTitle>{editingChapter ? 'Edit Chapter' : 'New Chapter'}</CardTitle>
+            <CardTitle>{getChapterFormTitle(!!editingChapter, form.chapter_type)}</CardTitle>
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-[#2c1810]">Chapter Type</label>
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
@@ -779,7 +823,7 @@ export function InstructorCoursePage() {
 
               <div className="flex gap-2">
                 <Button type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : editingChapter ? 'Update' : 'Create'}
+                  {getChapterSubmitLabel(!!editingChapter, saving, form.chapter_type)}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
@@ -868,7 +912,7 @@ export function InstructorCoursePage() {
           ))}
           {chapters.length === 0 && !showForm && (
             <Card className="border-dashed border-[#e8ddd0] py-12 text-center">
-              <CardDescription>No chapters yet. Click &quot;Add New Chapter&quot; to get started.</CardDescription>
+              <CardDescription>No chapters yet. Click &quot;Add New Reading&quot; or &quot;Add New Assignments&quot; to get started.</CardDescription>
             </Card>
           )}
         </div>
