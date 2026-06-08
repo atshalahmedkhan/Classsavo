@@ -6,6 +6,8 @@ import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { progressApi } from '@/api/progress';
 import { ChapterFileUpload } from '@/components/ChapterFileUpload';
+import { DueDateBadge } from '@/components/DueDateBadge';
+import { GhibliDateTimePicker } from '@/components/GhibliDateTimePicker';
 import { InstructorHeader } from '@/components/instructor/InstructorHeader';
 import { PlateEditor } from '@/components/PlateEditor';
 import { Button } from '@/components/ui/Button';
@@ -212,7 +214,7 @@ export function InstructorCoursePage() {
         });
         setAssignment({
           instructions: updated.assignment_instructions ?? '',
-          dueDate: updated.due_date ? updated.due_date.slice(0, 16) : '',
+          dueDate: updated.due_date ?? '',
         });
         setFormSuccess('Chapter updated.');
       } else {
@@ -251,7 +253,7 @@ export function InstructorCoursePage() {
         });
         setAssignment({
           instructions: chapterForEdit.assignment_instructions ?? '',
-          dueDate: chapterForEdit.due_date ? chapterForEdit.due_date.slice(0, 16) : '',
+          dueDate: chapterForEdit.due_date ?? '',
         });
         setAssignmentError('');
         setAssignmentSuccess('');
@@ -293,7 +295,7 @@ export function InstructorCoursePage() {
     });
     setAssignment({
       instructions: chapter.assignment_instructions ?? '',
-      dueDate: chapter.due_date ? chapter.due_date.slice(0, 16) : '',
+      dueDate: chapter.due_date ?? '',
     });
     setAssignmentError('');
     setAssignmentSuccess('');
@@ -431,6 +433,19 @@ export function InstructorCoursePage() {
     });
   };
 
+  const handleDueDateChange = async (iso: string | null) => {
+    setAssignment((prev) => ({ ...prev, dueDate: iso ?? '' }));
+    if (!editingChapter) return;
+    try {
+      const updated = await chaptersApi.update(editingChapter.id, { due_date: iso });
+      setEditingChapter(updated);
+      setChapters((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)));
+      setAssignment((prev) => ({ ...prev, dueDate: updated.due_date ?? '' }));
+    } catch (err) {
+      setFormError(getApiErrorMessage(err, 'Could not save due date.'));
+    }
+  };
+
   const handleSaveAssignment = async () => {
     if (!editingChapter) return;
     setAssignmentSaving(true);
@@ -439,10 +454,11 @@ export function InstructorCoursePage() {
     try {
       const updated = await chaptersApi.update(editingChapter.id, {
         assignment_instructions: assignment.instructions,
-        due_date: assignment.dueDate ? new Date(assignment.dueDate).toISOString() : null,
+        due_date: assignment.dueDate || null,
       });
       setEditingChapter(updated);
       setChapters((prev) => prev.map((ch) => (ch.id === updated.id ? updated : ch)));
+      setAssignment((prev) => ({ ...prev, dueDate: updated.due_date ?? '' }));
       setAssignmentSuccess('Assignment saved.');
     } catch (err) {
       setAssignmentError(getApiErrorMessage(err, 'Could not save assignment.'));
@@ -848,7 +864,7 @@ export function InstructorCoursePage() {
                         ? 'Upload materials, instructions, and a due date for students.'
                         : form.chapter_type === 'syllabus'
                           ? 'Upload your syllabus document or supporting files for students.'
-                          : 'Upload reading materials for students.'}
+                          : 'Upload reading materials and optionally set a due date for students.'}
                     </CardDescription>
                     {editingChapter ? (
                       <div className="mt-4 space-y-4">
@@ -859,6 +875,12 @@ export function InstructorCoursePage() {
                           onFileDeleted={handleFileDeleted}
                           label="Upload Reading Materials"
                         />
+                        {(form.chapter_type === 'reading' || form.chapter_type === 'assignment') && (
+                          <GhibliDateTimePicker
+                            value={assignment.dueDate || null}
+                            onChange={(iso) => void handleDueDateChange(iso)}
+                          />
+                        )}
                         {form.chapter_type === 'assignment' && (
                           <>
                             <div>
@@ -868,17 +890,6 @@ export function InstructorCoursePage() {
                                 onChange={(e) => setAssignment({ ...assignment, instructions: e.target.value })}
                                 placeholder="e.g. Read pages 1–20 and answer the review questions"
                                 className="min-h-24"
-                              />
-                            </div>
-                            <div>
-                              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#c2622a]">
-                                Due Date
-                              </label>
-                              <input
-                                type="datetime-local"
-                                value={assignment.dueDate}
-                                onChange={(e) => setAssignment({ ...assignment, dueDate: e.target.value })}
-                                className="w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1] px-4 py-3 text-[#2c1810] outline-none accent-[#c2622a] focus:border-[#c2622a]"
                               />
                             </div>
                             <Button
@@ -1058,6 +1069,9 @@ export function InstructorCoursePage() {
                       <Badge className="bg-amber-100 text-amber-800">📋 Syllabus</Badge>
                     ) : (
                       <Badge className="bg-blue-100 text-blue-700">📖 Reading</Badge>
+                    )}
+                    {chapter.due_date && (
+                      <DueDateBadge dueDate={chapter.due_date} variant="instructor" />
                     )}
                   </div>
                   <CardDescription className="mt-1 text-[#6b5c52]">

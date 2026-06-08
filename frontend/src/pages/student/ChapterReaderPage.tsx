@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Calendar, CheckCircle2, ClipboardList } from 'lucide-react';
+import { CheckCircle2, ClipboardList } from 'lucide-react';
 import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { AIChatPanel } from '@/components/AIChatPanel';
 import { CourseMaterialPanel } from '@/components/CourseMaterialPanel';
+import { DueDateBadge } from '@/components/DueDateBadge';
 import { StartCourseCard } from '@/components/student/StartCourseCard';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { PlateViewer } from '@/components/PlateViewer';
@@ -15,13 +16,6 @@ import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { isSyllabusChapter, partitionChapters } from '@/lib/chapterUtils';
 import { formatDuration } from '@/lib/readingTime';
 import type { Chapter, FirstChapter } from '@/types';
-
-function formatDueDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 export function ChapterReaderPage() {
   const { courseId, chapterId } = useParams();
@@ -109,7 +103,6 @@ export function ChapterReaderPage() {
   const isAssignmentChapter = (chapter.chapter_type ?? 'reading') === 'assignment';
   const hasInstructions = Boolean(chapter.assignment_instructions?.trim());
   const hasDueDate = Boolean(chapter.due_date);
-  const isOverdue = hasDueDate && new Date(chapter.due_date!) < new Date();
 
   return (
     <>
@@ -186,6 +179,9 @@ export function ChapterReaderPage() {
             </Link>
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
+              {hasDueDate && !isSyllabus && (
+                <DueDateBadge dueDate={chapter.due_date!} variant="student" />
+              )}
               {isRead ? (
                 <Badge className="bg-[#5a8a5a]/15 text-[#5a8a5a]">
                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Marked as Read
@@ -233,19 +229,6 @@ export function ChapterReaderPage() {
                     <ClipboardList className="h-5 w-5 text-[#c2622a]" />
                     <CardTitle className="text-lg">Assignment</CardTitle>
                   </div>
-                  {hasDueDate && (
-                    <Badge
-                      className={
-                        isOverdue
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-[#c2622a]/10 text-[#c2622a]'
-                      }
-                    >
-                      <Calendar className="mr-1 inline h-3.5 w-3.5" />
-                      Due {formatDueDate(chapter.due_date!)}
-                      {isOverdue ? ' · Overdue' : ''}
-                    </Badge>
-                  )}
                 </div>
 
                 <div className="space-y-6 p-6">

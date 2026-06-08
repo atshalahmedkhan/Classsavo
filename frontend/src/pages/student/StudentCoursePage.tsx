@@ -13,6 +13,7 @@ import { coursesApi } from '@/api/courses';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
+import { DueDateBadge } from '@/components/DueDateBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -289,10 +290,6 @@ export function StudentCoursePage() {
                   ) : (
                     <div className="space-y-2">
                       {filteredChapters.map((chapter, index) => {
-                        const overdue =
-                          chapter.chapter_type === 'assignment' &&
-                          chapter.due_date &&
-                          new Date(chapter.due_date) < new Date();
                         return (
                           <div key={chapter.id} className="rounded-lg border border-[#e8ddd0]">
                             <button
@@ -311,21 +308,10 @@ export function StudentCoursePage() {
                                   {getChapterProgress(chapter.id)?.is_read && (
                                     <Badge className="bg-[#5a8a5a]/15 text-[#5a8a5a]">Read</Badge>
                                   )}
+                                  {chapter.due_date && (
+                                    <DueDateBadge dueDate={chapter.due_date} variant="student" />
+                                  )}
                                 </div>
-                                {chapterFilter === 'assignment' && chapter.due_date && (
-                                  <p
-                                    className={`mt-1 pl-11 text-sm ${
-                                      overdue ? 'font-medium text-red-600' : 'text-[#6b5c52]'
-                                    }`}
-                                  >
-                                    Due{' '}
-                                    {new Date(chapter.due_date).toLocaleString(undefined, {
-                                      dateStyle: 'medium',
-                                      timeStyle: 'short',
-                                    })}
-                                    {overdue ? ' · Overdue' : ''}
-                                  </p>
-                                )}
                               </div>
                               {expandedModule === index ? (
                                 <ChevronUp className="h-4 w-4 shrink-0 text-[#6b5c52]" />
