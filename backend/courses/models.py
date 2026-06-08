@@ -29,6 +29,8 @@ class Course(models.Model):
     description = models.TextField()
 
     thumbnail = models.ImageField(upload_to='course_thumbnails/', blank=True, null=True)
+    thumbnail_data = models.BinaryField(blank=True, null=True)
+    thumbnail_mime_type = models.CharField(max_length=100, blank=True, default='')
 
     instructor = models.ForeignKey(
 

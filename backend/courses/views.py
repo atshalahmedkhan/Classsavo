@@ -3,13 +3,13 @@ import os
 
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.http import FileResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from groq import Groq
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -61,6 +61,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         course = serializer.save(instructor=request.user)
+        course.refresh_from_db()
         output = CourseSerializer(course, context={'request': request})
         return Response(output.data, status=status.HTTP_201_CREATED)
 
@@ -70,8 +71,31 @@ class CourseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         course = serializer.save()
+        course.refresh_from_db()
         output = CourseSerializer(course, context={'request': request})
         return Response(output.data)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='thumbnail',
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+    )
+    def thumbnail(self, request, pk=None):
+        course = get_object_or_404(Course, pk=pk)
+        if course.thumbnail_data:
+            response = HttpResponse(course.thumbnail_data, content_type=course.thumbnail_mime_type or 'image/jpeg')
+            response['Cache-Control'] = 'public, max-age=86400'
+            return response
+        if course.thumbnail:
+            try:
+                file_handle = course.thumbnail.open('rb')
+            except (OSError, ValueError):
+                raise Http404 from None
+            content_type, _ = mimetypes.guess_type(course.thumbnail.name)
+            return FileResponse(file_handle, content_type=content_type or 'image/jpeg')
+        raise Http404
 
     @action(detail=True, methods=['get'], url_path='enrollments')
     def enrollments(self, request, pk=None):

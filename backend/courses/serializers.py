@@ -1,11 +1,11 @@
 import json
-import os
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from accounts.serializers import UserSerializer
 from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment, Message, Notification, generate_access_code
+from .thumbnail_utils import persist_thumbnail_bytes
 
 User = get_user_model()
 
@@ -53,6 +53,8 @@ class CourseSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'instructor', 'created_at')
 
     def get_thumbnail_url(self, obj):
+        if obj.thumbnail_data:
+            return f'/api/courses/{obj.id}/thumbnail/'
         if not obj.thumbnail:
             return None
         return obj.thumbnail.url
@@ -106,7 +108,16 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             while Course.objects.filter(access_code=access_code).exists():
                 access_code = generate_access_code()
         validated_data['access_code'] = access_code
-        return super().create(validated_data)
+        course = super().create(validated_data)
+        if course.thumbnail:
+            persist_thumbnail_bytes(course)
+        return course
+
+    def update(self, instance, validated_data):
+        course = super().update(instance, validated_data)
+        if 'thumbnail' in validated_data and course.thumbnail:
+            persist_thumbnail_bytes(course)
+        return course
 
 
 class ChapterSerializer(serializers.ModelSerializer):
