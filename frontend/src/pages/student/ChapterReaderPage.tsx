@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { useChapterReadingTimer } from '@/hooks/useChapterReadingTimer';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
+import { isSyllabusChapter, partitionChapters } from '@/lib/chapterUtils';
 import { formatDuration } from '@/lib/readingTime';
 import type { Chapter, FirstChapter } from '@/types';
 
@@ -103,6 +104,8 @@ export function ChapterReaderPage() {
   }
 
   const files = chapter.files ?? [];
+  const { syllabusChapters, contentChapters } = partitionChapters(chapters);
+  const isSyllabus = isSyllabusChapter(chapter);
   const isAssignmentChapter = (chapter.chapter_type ?? 'reading') === 'assignment';
   const hasInstructions = Boolean(chapter.assignment_instructions?.trim());
   const hasDueDate = Boolean(chapter.due_date);
@@ -110,16 +113,44 @@ export function ChapterReaderPage() {
 
   return (
     <>
-      <StudentHeader title={chapter.title} subtitle="Chapter content and assignments" />
+      <StudentHeader
+        title={chapter.title}
+        subtitle={isSyllabus ? 'Course syllabus' : 'Chapter content and assignments'}
+      />
       <main className="flex-1 p-6">
         <div className="flex flex-col gap-6 lg:flex-row">
           <aside className="w-full shrink-0 lg:w-64">
             <Card className="border-[#e8ddd0] shadow-sm">
+              {syllabusChapters.length > 0 && (
+                <div className="mb-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6b5c52]">
+                    Syllabus
+                  </p>
+                  <nav className="space-y-1">
+                    {syllabusChapters.map((ch) => {
+                      const active = ch.id === chapter.id;
+                      return (
+                        <Link
+                          key={ch.id}
+                          to={`/student/courses/${courseId}/chapters/${ch.id}`}
+                          className={`flex items-center justify-between rounded-lg border-l-4 px-3 py-2 text-sm ${
+                            active
+                              ? 'border-[#c2622a] bg-[#c2622a]/10 font-serif font-medium text-[#c2622a]'
+                              : 'border-transparent text-[#6b5c52] hover:bg-[#faf6f1]'
+                          }`}
+                        >
+                          <span className="truncate">{ch.title}</span>
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#6b5c52]">
-                Chapters
+                Course Content
               </p>
               <nav className="space-y-1">
-                {chapters.map((ch) => {
+                {contentChapters.map((ch) => {
                   const progress = getChapterProgress(ch.id);
                   const read = progress?.is_read;
                   const active = ch.id === chapter.id;
@@ -172,7 +203,9 @@ export function ChapterReaderPage() {
             </div>
 
             <Card className="mt-4 border-[#e8ddd0] bg-[#faf6f1] shadow-sm">
-              <CardTitle className="mb-4 text-base text-[#6b5c52]">Chapter content</CardTitle>
+              <CardTitle className="mb-4 text-base text-[#6b5c52]">
+                {isSyllabus ? 'Syllabus' : 'Chapter content'}
+              </CardTitle>
               <div ref={contentAreaRef} tabIndex={0} className="font-serif text-[#2c1810] outline-none">
                 <PlateViewer content={chapter.content} editorKey={chapter.id} />
               </div>

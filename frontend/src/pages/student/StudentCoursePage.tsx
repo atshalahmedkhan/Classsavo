@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { partitionChapters } from '@/lib/chapterUtils';
 import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import type { Chapter, ChapterType, Course } from '@/types';
@@ -31,7 +32,6 @@ export function StudentCoursePage() {
   const [loading, setLoading] = useState(true);
   const [expandedModule, setExpandedModule] = useState<number | null>(0);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [showSyllabusModal, setShowSyllabusModal] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joining, setJoining] = useState(false);
@@ -96,14 +96,18 @@ export function StudentCoursePage() {
       ? `${course.instructor.first_name} ${course.instructor.last_name}`
       : course.instructor.username;
 
-  const { readCount } = getCourseStats(course.id, chapters.length);
-  const readPct = chapters.length ? Math.round((readCount / chapters.length) * 100) : 0;
-  const publicChapterCount = chapters.length;
-  const filteredChapters = chapters.filter((chapter) => {
+  const { syllabusChapters, contentChapters } = partitionChapters(chapters);
+  const primarySyllabus = syllabusChapters[0] ?? null;
+  const { readCount } = getCourseStats(course.id, contentChapters.length);
+  const readPct = contentChapters.length
+    ? Math.round((readCount / contentChapters.length) * 100)
+    : 0;
+  const filteredChapters = contentChapters.filter((chapter) => {
     if (chapterFilter === 'all') return true;
-    if ((chapter.chapter_type ?? 'reading') === 'syllabus') return true;
     return (chapter.chapter_type ?? 'reading') === chapterFilter;
   });
+
+  const startChapter = primarySyllabus ?? contentChapters[0] ?? null;
 
   return (
     <>
@@ -135,10 +139,10 @@ export function StudentCoursePage() {
             <p className="mt-3 max-w-2xl text-white/85">{course.description}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               {course.is_enrolled ? (
-                chapters[0] ? (
-                  <Link to={`/student/courses/${course.id}/chapters/${chapters[0].id}`}>
+                startChapter ? (
+                  <Link to={`/student/courses/${course.id}/chapters/${startChapter.id}`}>
                     <Button className="bg-white text-[#c2622a] hover:bg-[#c2622a]/10">
-                      Start Learning Now
+                      {primarySyllabus ? 'Read Syllabus' : 'Start Learning Now'}
                     </Button>
                   </Link>
                 ) : (
@@ -156,13 +160,16 @@ export function StudentCoursePage() {
                   Enroll in Course
                 </Button>
               )}
-              <Button
-                variant="outline"
-                className="border-white/40 bg-transparent text-white hover:bg-white/10"
-                onClick={() => setShowSyllabusModal(true)}
-              >
-                View Syllabus
-              </Button>
+              {primarySyllabus && (
+                <Link to={`/student/courses/${course.id}/chapters/${primarySyllabus.id}`}>
+                  <Button
+                    variant="outline"
+                    className="border-white/40 bg-transparent text-white hover:bg-white/10"
+                  >
+                    View Syllabus
+                  </Button>
+                </Link>
+              )}
               {course.is_enrolled && (
                 <Button
                   variant="outline"
@@ -184,12 +191,12 @@ export function StudentCoursePage() {
           <div className="space-y-6 lg:col-span-2">
             <Card className="border-[#e8ddd0] shadow-sm">
               <CardTitle>Course Overview</CardTitle>
-              {course.is_enrolled && chapters.length > 0 && (
+              {course.is_enrolled && contentChapters.length > 0 && (
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-[#6b5c52]">Reading progress</span>
+                    <span className="text-[#6b5c52]">Course progress</span>
                     <span className="font-bold text-[#c2622a]">
-                      {readCount} / {chapters.length} chapters read
+                      {readCount} / {contentChapters.length} chapters read
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-[#faf6f1]">
@@ -200,7 +207,7 @@ export function StudentCoursePage() {
               <CardDescription className="mt-3 leading-relaxed">{course.description}</CardDescription>
               <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[#e8ddd0] pt-6 sm:grid-cols-4">
                 {[
-                  { label: 'Chapters', value: `${publicChapterCount}` },
+                  { label: 'Chapters', value: `${contentChapters.length}` },
                   { label: 'Format', value: 'Self-paced' },
                   { label: 'Access', value: course.is_enrolled ? 'Enrolled' : 'Open' },
                   { label: 'Students', value: `${course.enrollment_count ?? '—'}` },
@@ -213,17 +220,46 @@ export function StudentCoursePage() {
               </div>
             </Card>
 
+            {primarySyllabus && (
+              <Card className="border-[#e8ddd0] bg-[#faf6f1] shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <Badge className="bg-amber-100 text-amber-800">Syllabus</Badge>
+                    <CardTitle className="mt-2 text-lg">{primarySyllabus.title}</CardTitle>
+                    <CardDescription className="mt-1">
+                      Review the course syllabus before starting readings and assignments.
+                    </CardDescription>
+                  </div>
+                  {course.is_enrolled ? (
+                    <Link to={`/student/courses/${course.id}/chapters/${primarySyllabus.id}`}>
+                      <Button className="ghibli-gradient-primary hover:brightness-95">
+                        Read Syllabus
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="border-[#c2622a]/40 text-[#c2622a]"
+                      onClick={() => setShowJoinModal(true)}
+                    >
+                      Enroll to Read
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+
             <Card className="border-[#e8ddd0] shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <CardTitle>Curriculum Breakdown</CardTitle>
+                <CardTitle>Course Content</CardTitle>
                 <span className="text-sm text-[#6b5c52]">
-                  {chapters.length} Modules · {chapters.length} Lectures
+                  {contentChapters.length} {contentChapters.length === 1 ? 'chapter' : 'chapters'}
                 </span>
               </div>
-              {chapters.length === 0 ? (
+              {contentChapters.length === 0 ? (
                 <CardDescription>
                   {course.is_enrolled
-                    ? 'No public chapters available yet.'
+                    ? 'No readings or assignments published yet.'
                     : 'Enroll to access course content.'}
                 </CardDescription>
               ) : (
@@ -342,7 +378,7 @@ export function StudentCoursePage() {
               <p className="mt-2 text-2xl font-bold">{course.is_enrolled ? 'Enrolled' : 'Free to Join'}</p>
               <ul className="mt-4 space-y-2 text-sm text-white/85">
                 <li className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" /> {publicChapterCount} chapters
+                  <BookOpen className="h-4 w-4" /> {contentChapters.length} chapters
                 </li>
                 <li className="flex items-center gap-2">
                   <Clock className="h-4 w-4" /> Self-paced learning
@@ -373,49 +409,6 @@ export function StudentCoursePage() {
         </div>
       </Modal>
 
-      <Modal
-        open={showSyllabusModal}
-        onClose={() => setShowSyllabusModal(false)}
-        title={`Syllabus — ${course.title}`}
-      >
-        {chapters.length === 0 ? (
-          <p className="text-sm text-[#6b5c52]">No public chapters available yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {chapters.map((chapter, index) => {
-              const overdue =
-                chapter.due_date && new Date(chapter.due_date) < new Date();
-              return (
-                <div
-                  key={chapter.id}
-                  className={`rounded-lg border p-4 ${
-                    overdue ? 'border-red-200 bg-red-50' : 'border-[#e8ddd0]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-[#6b5c52]">
-                        Chapter {String(index + 1).padStart(2, '0')}
-                      </p>
-                      <p className={`font-medium ${overdue ? 'text-red-800' : 'text-[#2c1810]'}`}>
-                        {chapter.title}
-                      </p>
-                    </div>
-                    <p className={`shrink-0 text-sm ${overdue ? 'font-semibold text-red-700' : 'text-[#6b5c52]'}`}>
-                      {chapter.due_date
-                        ? new Date(chapter.due_date).toLocaleString(undefined, {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })
-                        : 'No due date'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Modal>
     </>
   );
 }
