@@ -1,14 +1,4 @@
-function getBackendOrigin(): string {
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  if (!apiBase || apiBase.startsWith('/')) {
-    return '';
-  }
-  try {
-    return new URL(apiBase).origin;
-  } catch {
-    return '';
-  }
-}
+import { getBackendOrigin } from './apiConfig';
 
 /** Resolve course/media URLs for dev proxy and production (Render) backends. */
 export function normalizeMediaUrl(url: string): string {
