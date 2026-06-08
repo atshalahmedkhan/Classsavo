@@ -18,6 +18,7 @@ export const chaptersApi = {
     title: string;
     content: Value;
     course: number;
+    chapter_type?: 'reading' | 'assignment';
     is_public?: boolean;
     order?: number;
   }) => {
@@ -30,6 +31,7 @@ export const chaptersApi = {
     payload: Partial<{
       title: string;
       content: Value;
+      chapter_type: 'reading' | 'assignment';
       is_public: boolean;
       order: number;
       assignment_instructions: string;

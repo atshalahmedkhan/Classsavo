@@ -40,11 +40,14 @@ export interface ChapterFile {
   has_pdf_preview?: boolean;
 }
 
+export type ChapterType = 'reading' | 'assignment';
+
 export interface Chapter {
   id: number;
   title: string;
   content: Value;
   course: number;
+  chapter_type: ChapterType;
   is_public: boolean;
   order: number;
   assignment_instructions?: string;

@@ -6,21 +6,75 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { useInstructorData } from '@/hooks/useInstructorData';
+import type { Enrollment } from '@/types';
+
+type CourseFilter = 'all' | number;
+
+function downloadCsv(filename: string, rows: string[][]): void {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildEnrollmentRows(enrollments: Enrollment[]): string[][] {
+  return [
+    ['Student Username', 'Student Email', 'Course', 'Enrolled Date', 'Status'],
+    ...enrollments.map((enrollment) => [
+      enrollment.student.username,
+      enrollment.student.email,
+      enrollment.course.title,
+      new Date(enrollment.enrolled_at).toLocaleDateString(),
+      'Active',
+    ]),
+  ];
+}
 
 export function InstructorStudentsPage() {
   const { enrollments, courses, loading, stats } = useInstructorData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [courseFilter, setCourseFilter] = useState<CourseFilter>('all');
 
   const filteredEnrollments = useMemo(() => {
+    let result = enrollments;
+    if (courseFilter !== 'all') {
+      result = result.filter((enrollment) => enrollment.course.id === courseFilter);
+    }
     const normalized = searchQuery.trim().toLowerCase();
-    if (!normalized) return enrollments;
-    return enrollments.filter(
+    if (!normalized) return result;
+    return result.filter(
       (enrollment) =>
         enrollment.student.username.toLowerCase().includes(normalized) ||
         enrollment.student.email.toLowerCase().includes(normalized) ||
         enrollment.course.title.toLowerCase().includes(normalized),
     );
-  }, [enrollments, searchQuery]);
+  }, [enrollments, searchQuery, courseFilter]);
+
+  const handleExportCsv = () => {
+    if (filteredEnrollments.length === 0) {
+      window.alert('No enrollment data to export for the current filter.');
+      return;
+    }
+
+    const suffix =
+      courseFilter === 'all'
+        ? 'all-courses'
+        : courses.find((course) => course.id === courseFilter)?.title.replace(/[^\w-]+/g, '-').toLowerCase() ?? 'course';
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(`classavo-students-${suffix}-${date}.csv`, buildEnrollmentRows(filteredEnrollments));
+  };
+
+  const clearFilters = () => {
+    setCourseFilter('all');
+    setShowFilters(false);
+  };
 
   const searchResults = useMemo<InstructorSearchResult[]>(() => {
     if (!searchQuery.trim()) return [];
@@ -62,12 +116,69 @@ export function InstructorStudentsPage() {
               </Card>
             </div>
 
+            {showFilters && (
+              <Card className="border-[#e8ddd0] shadow-sm">
+                <CardTitle className="text-base">Filter students</CardTitle>
+                <div className="mt-4 flex flex-wrap items-end gap-4">
+                  <div>
+                    <label htmlFor="students-course-filter" className="mb-1 block text-sm font-medium text-[#2c1810]">
+                      Course
+                    </label>
+                    <select
+                      id="students-course-filter"
+                      className="flex h-10 min-w-[220px] rounded-lg border border-[#e8ddd0] bg-white px-3 text-sm text-[#2c1810] outline-none focus:border-[#c2622a]"
+                      value={courseFilter === 'all' ? 'all' : String(courseFilter)}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setCourseFilter(value === 'all' ? 'all' : Number(value));
+                      }}
+                    >
+                      <option value="all">All courses</option>
+                      {courses.map((course) => (
+                        <option key={course.id} value={course.id}>
+                          {course.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button variant="outline" size="sm" type="button" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                </div>
+                {courseFilter !== 'all' && (
+                  <p className="mt-3 text-sm text-[#6b5c52]">
+                    Showing students enrolled in{' '}
+                    <span className="font-medium text-[#2c1810]">
+                      {courses.find((course) => course.id === courseFilter)?.title ?? 'selected course'}
+                    </span>
+                    .
+                  </p>
+                )}
+              </Card>
+            )}
+
             <Card className="border-[#e8ddd0] shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <CardTitle>Enrolled Students</CardTitle>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm"><Filter className="mr-1 h-4 w-4" /> Filter</Button>
-                  <Button variant="outline" size="sm"><Download className="mr-1 h-4 w-4" /> Export</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    aria-pressed={showFilters}
+                    onClick={() => setShowFilters((open) => !open)}
+                  >
+                    <Filter className="mr-1 h-4 w-4" /> Filter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={handleExportCsv}
+                    disabled={loading || filteredEnrollments.length === 0}
+                  >
+                    <Download className="mr-1 h-4 w-4" /> Export
+                  </Button>
                 </div>
               </div>
 

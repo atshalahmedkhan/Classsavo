@@ -19,7 +19,9 @@ import { Modal } from '@/components/ui/Modal';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
-import type { Chapter, Course } from '@/types';
+import type { Chapter, ChapterType, Course } from '@/types';
+
+type ChapterFilter = 'all' | ChapterType;
 
 export function StudentCoursePage() {
   const { courseId } = useParams();
@@ -33,6 +35,7 @@ export function StudentCoursePage() {
   const [accessCode, setAccessCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joining, setJoining] = useState(false);
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>('all');
   const { getCourseStats, getChapterProgress } = useStudentProgress();
 
   useEffect(() => {
@@ -96,6 +99,10 @@ export function StudentCoursePage() {
   const { readCount } = getCourseStats(course.id, chapters.length);
   const readPct = chapters.length ? Math.round((readCount / chapters.length) * 100) : 0;
   const publicChapterCount = chapters.length;
+  const filteredChapters = chapters.filter((chapter) => {
+    if (chapterFilter === 'all') return true;
+    return (chapter.chapter_type ?? 'reading') === chapterFilter;
+  });
 
   return (
     <>
@@ -219,43 +226,91 @@ export function StudentCoursePage() {
                     : 'Enroll to access course content.'}
                 </CardDescription>
               ) : (
-                <div className="space-y-2">
-                  {chapters.map((chapter, index) => (
-                    <div key={chapter.id} className="rounded-lg border border-[#e8ddd0]">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      { id: 'all' as const, label: 'All' },
+                      { id: 'reading' as const, label: 'Readings' },
+                      { id: 'assignment' as const, label: 'Assignments' },
+                    ]).map((tab) => (
                       <button
+                        key={tab.id}
                         type="button"
-                        className="flex w-full items-center justify-between p-4 text-left"
-                        onClick={() =>
-                          setExpandedModule(expandedModule === index ? null : index)
-                        }
+                        onClick={() => setChapterFilter(tab.id)}
+                        className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                          chapterFilter === tab.id
+                            ? 'ghibli-gradient-primary text-white'
+                            : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40'
+                        }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-8 w-8 items-center justify-center rounded bg-[#faf6f1] text-sm font-bold text-[#6b5c52]">
-                            {String(index + 1).padStart(2, '0')}
-                          </span>
-                          <span className="font-medium">{chapter.title}</span>
-                          {getChapterProgress(chapter.id)?.is_read && (
-                            <Badge className="bg-[#5a8a5a]/15 text-[#5a8a5a]">Read</Badge>
-                          )}
-                        </div>
-                        {expandedModule === index ? (
-                          <ChevronUp className="h-4 w-4 text-[#6b5c52]" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-[#6b5c52]" />
-                        )}
+                        {tab.label}
                       </button>
-                      {expandedModule === index && (
-                        <div className="border-t border-[#e8ddd0] px-4 pb-4 pt-2">
-                          <Link
-                            to={`/student/courses/${course.id}/chapters/${chapter.id}`}
-                            className="text-sm font-medium text-[#c2622a] hover:underline"
-                          >
-                            Read chapter →
-                          </Link>
-                        </div>
-                      )}
+                    ))}
+                  </div>
+                  {filteredChapters.length === 0 ? (
+                    <CardDescription>No chapters match this filter.</CardDescription>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredChapters.map((chapter, index) => {
+                        const overdue =
+                          chapter.chapter_type === 'assignment' &&
+                          chapter.due_date &&
+                          new Date(chapter.due_date) < new Date();
+                        return (
+                          <div key={chapter.id} className="rounded-lg border border-[#e8ddd0]">
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between p-4 text-left"
+                              onClick={() =>
+                                setExpandedModule(expandedModule === index ? null : index)
+                              }
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-3">
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-[#faf6f1] text-sm font-bold text-[#6b5c52]">
+                                    {String(index + 1).padStart(2, '0')}
+                                  </span>
+                                  <span className="font-medium">{chapter.title}</span>
+                                  {getChapterProgress(chapter.id)?.is_read && (
+                                    <Badge className="bg-[#5a8a5a]/15 text-[#5a8a5a]">Read</Badge>
+                                  )}
+                                </div>
+                                {chapterFilter === 'assignment' && chapter.due_date && (
+                                  <p
+                                    className={`mt-1 pl-11 text-sm ${
+                                      overdue ? 'font-medium text-red-600' : 'text-[#6b5c52]'
+                                    }`}
+                                  >
+                                    Due{' '}
+                                    {new Date(chapter.due_date).toLocaleString(undefined, {
+                                      dateStyle: 'medium',
+                                      timeStyle: 'short',
+                                    })}
+                                    {overdue ? ' · Overdue' : ''}
+                                  </p>
+                                )}
+                              </div>
+                              {expandedModule === index ? (
+                                <ChevronUp className="h-4 w-4 shrink-0 text-[#6b5c52]" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 shrink-0 text-[#6b5c52]" />
+                              )}
+                            </button>
+                            {expandedModule === index && (
+                              <div className="border-t border-[#e8ddd0] px-4 pb-4 pt-2">
+                                <Link
+                                  to={`/student/courses/${course.id}/chapters/${chapter.id}`}
+                                  className="text-sm font-medium text-[#c2622a] hover:underline"
+                                >
+                                  Read chapter →
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </Card>

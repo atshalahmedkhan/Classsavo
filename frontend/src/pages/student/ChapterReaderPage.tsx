@@ -89,9 +89,9 @@ export function ChapterReaderPage() {
   }
 
   const files = chapter.files ?? [];
+  const isAssignmentChapter = (chapter.chapter_type ?? 'reading') === 'assignment';
   const hasInstructions = Boolean(chapter.assignment_instructions?.trim());
   const hasDueDate = Boolean(chapter.due_date);
-  const hasAssignment = hasInstructions || hasDueDate || files.length > 0;
   const isOverdue = hasDueDate && new Date(chapter.due_date!) < new Date();
 
   return (
@@ -164,7 +164,18 @@ export function ChapterReaderPage() {
               </div>
             </Card>
 
-            {hasAssignment && (
+            {!isAssignmentChapter && files.length > 0 && (
+              <Card className="mt-8 border-[#e8ddd0] shadow-sm">
+                <CardTitle className="border-b border-[#e8ddd0] px-6 py-4 text-lg">Reading Materials</CardTitle>
+                <div className="space-y-4 p-6">
+                  {files.map((file) => (
+                    <CourseMaterialPanel key={file.id} file={file} />
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {isAssignmentChapter && (
               <Card className="mt-8 border-l-4 border-l-[#c2622a] border-[#e8ddd0] shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#e8ddd0] px-6 py-4">
                   <div className="flex items-center gap-2">
