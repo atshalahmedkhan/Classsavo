@@ -94,10 +94,8 @@ export function InstructorCoursePage() {
   const [courseDetailsSaving, setCourseDetailsSaving] = useState(false);
   const [courseDetailsError, setCourseDetailsError] = useState('');
   const [courseDetailsSuccess, setCourseDetailsSuccess] = useState('');
-  const [listNotice, setListNotice] = useState('');
   const [highlightChapterId, setHighlightChapterId] = useState<number | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
-  const listNoticeTimerRef = useRef<number | null>(null);
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -151,25 +149,6 @@ export function InstructorCoursePage() {
       window.clearTimeout(timer);
     };
   }, [highlightChapterId, chapters]);
-
-  useEffect(() => {
-    return () => {
-      if (listNoticeTimerRef.current !== null) {
-        window.clearTimeout(listNoticeTimerRef.current);
-      }
-    };
-  }, []);
-
-  const showListNotice = (message: string) => {
-    setListNotice(message);
-    if (listNoticeTimerRef.current !== null) {
-      window.clearTimeout(listNoticeTimerRef.current);
-    }
-    listNoticeTimerRef.current = window.setTimeout(() => {
-      setListNotice('');
-      listNoticeTimerRef.current = null;
-    }, 6000);
-  };
 
   const resetForm = () => {
     setForm({
@@ -232,17 +211,39 @@ export function InstructorCoursePage() {
         setChapters((prev) =>
           [...prev.filter((ch) => ch.id !== created.id), created].sort((a, b) => a.order - b.order),
         );
-        resetForm();
         setActiveTab('curriculum');
-        setHighlightChapterId(created.id);
-        showListNotice(
-          `"${created.title}" created. Click the pencil icon on that chapter to upload files or edit details.`,
-        );
+        setHighlightChapterId(null);
+
+        let chapterForEdit = created;
         try {
           await load({ silent: true });
+          chapterForEdit = await chaptersApi.get(created.id);
         } catch {
-          // Chapter was saved; keep the form closed even if refresh fails.
+          // Chapter was saved; still open upload UI with create response.
         }
+
+        setEditingChapter(chapterForEdit);
+        setForm({
+          title: chapterForEdit.title,
+          content: chapterForEdit.content,
+          order: chapterForEdit.order,
+          is_public: chapterForEdit.is_public,
+          chapter_type: chapterForEdit.chapter_type ?? 'reading',
+        });
+        setAssignment({
+          instructions: chapterForEdit.assignment_instructions ?? '',
+          dueDate: chapterForEdit.due_date ? chapterForEdit.due_date.slice(0, 16) : '',
+        });
+        setAssignmentError('');
+        setAssignmentSuccess('');
+        setShowForm(true);
+        setFormSuccess(
+          chapterForEdit.chapter_type === 'assignment'
+            ? 'Chapter created. Upload materials and add assignment details below.'
+            : chapterForEdit.chapter_type === 'syllabus'
+              ? 'Syllabus created. Upload your syllabus document below.'
+              : 'Chapter created. Upload your reading materials below.',
+        );
       }
     } catch (err) {
       if (!editingChapter && isSyllabusRequiredError(err)) {
@@ -258,7 +259,6 @@ export function InstructorCoursePage() {
 
   const handleEdit = (chapter: Chapter) => {
     setActiveTab('curriculum');
-    setListNotice('');
     setEditingChapter(chapter);
     setForm({
       title: chapter.title,
@@ -455,7 +455,6 @@ export function InstructorCoursePage() {
 
   const handleOpenNewChapter = (chapterType: ChapterType = 'reading') => {
     setActiveTab('curriculum');
-    setListNotice('');
     setHighlightChapterId(null);
     setEditingChapter(null);
     setForm({
@@ -707,12 +706,6 @@ export function InstructorCoursePage() {
             </div>
           </div>
 
-          {listNotice && !showForm && (
-            <div className="rounded-2xl border border-[#5a8a5a]/30 bg-[#5a8a5a]/10 px-5 py-4 text-sm text-[#2c1810]">
-              {listNotice}
-            </div>
-          )}
-
           {showForm && (
             <div ref={formRef} className="scroll-mt-6">
               <Card className="mb-6 border-[#c2622a]/30 shadow-md ring-1 ring-[#c2622a]/10">
@@ -857,8 +850,10 @@ export function InstructorCoursePage() {
                       </div>
                     ) : (
                       <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                        Save the chapter first (click <strong>Create</strong>), then you can upload reading materials
-                        {form.chapter_type === 'assignment' ? ' and add assignment details' : ''}.
+                        Save the chapter first (click{' '}
+                        <strong>{getChapterSubmitLabel(false, false, form.chapter_type)}</strong>), then you can
+                        upload reading materials
+                        {form.chapter_type === 'assignment' ? ' and add assignment details' : ''} here.
                       </div>
                     )}
                   </div>
@@ -868,7 +863,7 @@ export function InstructorCoursePage() {
                       {getChapterSubmitLabel(!!editingChapter, saving, form.chapter_type)}
                     </Button>
                     <Button type="button" variant="outline" onClick={resetForm}>
-                      Cancel
+                      {editingChapter ? 'Close' : 'Cancel'}
                     </Button>
                   </div>
                   {formError && <p className="text-sm text-destructive">{formError}</p>}
