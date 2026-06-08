@@ -101,6 +101,7 @@ export function StudentCoursePage() {
   const publicChapterCount = chapters.length;
   const filteredChapters = chapters.filter((chapter) => {
     if (chapterFilter === 'all') return true;
+    if ((chapter.chapter_type ?? 'reading') === 'syllabus') return true;
     return (chapter.chapter_type ?? 'reading') === chapterFilter;
   });
 

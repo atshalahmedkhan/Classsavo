@@ -18,6 +18,11 @@ from accounts.permissions import IsStudent
 from .file_conversion import convert_docx_to_pdf
 from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment
 from .ai_chat_utils import build_ai_tutor_system_prompt
+from .syllabus_utils import (
+    SYLLABUS_REQUIRED_ERROR,
+    chapter_qualifies_as_syllabus,
+    mark_course_has_syllabus_if_needed,
+)
 from .chapter_file_utils import (
     get_file_response_parts,
     get_preview_response_parts,
@@ -194,6 +199,23 @@ class ChapterViewSet(viewsets.ModelViewSet):
         if course.instructor != self.request.user:
             raise PermissionDenied('You can only add chapters to your own courses.')
         serializer.save()
+        mark_course_has_syllabus_if_needed(serializer.instance)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        course = serializer.validated_data['course']
+        if course.instructor != self.request.user:
+            raise PermissionDenied('You can only add chapters to your own courses.')
+
+        title = serializer.validated_data.get('title', '')
+        chapter_type = serializer.validated_data.get('chapter_type', Chapter.ChapterType.READING)
+        if not course.has_syllabus and not chapter_qualifies_as_syllabus(title, chapter_type):
+            return Response({'error': SYLLABUS_REQUIRED_ERROR}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -202,6 +224,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
         was_public = instance.is_public
         response = super().update(request, *args, **kwargs)
         instance.refresh_from_db()
+        mark_course_has_syllabus_if_needed(instance)
         if instance.is_public and not was_public:
             create_chapter_published_notifications(instance)
         return response

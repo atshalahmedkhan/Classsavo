@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { DragEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
 import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { progressApi } from '@/api/progress';
@@ -18,27 +19,38 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { formatDuration } from '@/lib/readingTime';
 import type { Value } from '@udecode/plate';
-import type { Chapter, Course, ChapterFile, CourseProgressReport, User } from '@/types';
+import type { Chapter, ChapterType, Course, ChapterFile, CourseProgressReport, User } from '@/types';
 
 const emptyContent: Value = [{ type: 'p', children: [{ text: '' }] }];
 
-function getChapterFormTitle(editing: boolean, chapterType: 'reading' | 'assignment') {
+const SYLLABUS_REQUIRED_MESSAGE =
+  'You must publish a syllabus chapter first before adding readings or assignments.';
+
+function getChapterFormTitle(editing: boolean, chapterType: ChapterType) {
+  if (chapterType === 'syllabus') {
+    return editing ? 'Edit Syllabus' : 'Add New Syllabus';
+  }
   if (editing) {
     return chapterType === 'assignment' ? 'Edit Assignments' : 'Edit Reading';
   }
   return chapterType === 'assignment' ? 'Add New Assignments' : 'Add New Reading';
 }
 
-function getChapterSubmitLabel(
-  editing: boolean,
-  saving: boolean,
-  chapterType: 'reading' | 'assignment',
-) {
+function getChapterSubmitLabel(editing: boolean, saving: boolean, chapterType: ChapterType) {
   if (saving) return 'Saving...';
+  if (chapterType === 'syllabus') {
+    return editing ? 'Update Syllabus' : 'Add New Syllabus';
+  }
   if (editing) {
     return chapterType === 'assignment' ? 'Update Assignments' : 'Update Reading';
   }
   return chapterType === 'assignment' ? 'Add New Assignments' : 'Add New Reading';
+}
+
+function isSyllabusRequiredError(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 400) return false;
+  const data = error.response.data as { error?: string } | undefined;
+  return Boolean(data?.error?.toLowerCase().includes('syllabus'));
 }
 
 export function InstructorCoursePage() {
@@ -60,8 +72,9 @@ export function InstructorCoursePage() {
     content: emptyContent,
     order: 0,
     is_public: false,
-    chapter_type: 'reading' as 'reading' | 'assignment',
+    chapter_type: 'syllabus' as ChapterType,
   });
+  const [showSyllabusModal, setShowSyllabusModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [formError, setFormError] = useState('');
@@ -114,7 +127,13 @@ export function InstructorCoursePage() {
   }, [activeTab, courseId]);
 
   const resetForm = () => {
-    setForm({ title: '', content: emptyContent, order: chapters.length, is_public: false, chapter_type: 'reading' });
+    setForm({
+      title: '',
+      content: emptyContent,
+      order: chapters.length,
+      is_public: false,
+      chapter_type: course?.has_syllabus ? 'reading' : 'syllabus',
+    });
     setAssignment({ instructions: '', dueDate: '' });
     setAssignmentError('');
     setAssignmentSuccess('');
@@ -174,10 +193,20 @@ export function InstructorCoursePage() {
         setFormSuccess(
           created.chapter_type === 'assignment'
             ? 'Chapter created. You can now add assignment details below.'
-            : 'Chapter created. You can now upload reading materials below.',
+            : created.chapter_type === 'syllabus'
+              ? 'Syllabus created. Publish it when you are ready for students to see it.'
+              : 'Chapter created. You can now upload reading materials below.',
         );
+        if (created.chapter_type === 'syllabus' || created.title.toLowerCase().includes('syllabus')) {
+          setCourse((prev) => (prev ? { ...prev, has_syllabus: true } : prev));
+        }
       }
     } catch (err) {
+      if (!editingChapter && isSyllabusRequiredError(err)) {
+        setShowSyllabusModal(true);
+        setFormError('');
+        return;
+      }
       setFormError(getApiErrorMessage(err, 'Could not save chapter. Please try again.'));
     } finally {
       setSaving(false);
@@ -379,7 +408,7 @@ export function InstructorCoursePage() {
     handleDragEnd();
   };
 
-  const handleOpenNewChapter = (chapterType: 'reading' | 'assignment' = 'reading') => {
+  const handleOpenNewChapter = (chapterType: ChapterType = 'reading') => {
     setEditingChapter(null);
     setForm({
       title: '',
@@ -424,26 +453,55 @@ export function InstructorCoursePage() {
         ]}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="hover:border-[#c2622a]/40"
-              onClick={() => handleOpenNewChapter('reading')}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Add New Reading
-            </Button>
-            <Button
-              size="sm"
-              className="ghibli-gradient-primary hover:brightness-95"
-              onClick={() => handleOpenNewChapter('assignment')}
-            >
-              <Plus className="mr-1 h-4 w-4" /> Add New Assignments
-            </Button>
+            {!course.has_syllabus ? (
+              <Button
+                size="sm"
+                className="ghibli-gradient-primary hover:brightness-95"
+                onClick={() => handleOpenNewChapter('syllabus')}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add Syllabus
+              </Button>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="hover:border-[#c2622a]/40"
+                  onClick={() => handleOpenNewChapter('reading')}
+                >
+                  <Plus className="mr-1 h-4 w-4" /> Add New Reading
+                </Button>
+                <Button
+                  size="sm"
+                  className="ghibli-gradient-primary hover:brightness-95"
+                  onClick={() => handleOpenNewChapter('assignment')}
+                >
+                  <Plus className="mr-1 h-4 w-4" /> Add New Assignments
+                </Button>
+              </>
+            )}
           </div>
         }
       />
       <main className="flex-1 p-6">
         <div className="space-y-6">
+          {!course.has_syllabus && (
+            <div className="rounded-2xl border border-[#c2622a]/30 bg-[#c2622a]/10 px-5 py-4 text-[#2c1810] shadow-sm">
+              <p className="font-semibold">Start by publishing your course syllabus</p>
+              <p className="mt-1 text-sm text-[#6b5c52]">
+                Add a syllabus chapter before creating readings or assignments for this course.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-3 ghibli-gradient-primary hover:brightness-95"
+                onClick={() => handleOpenNewChapter('syllabus')}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add Syllabus
+              </Button>
+            </div>
+          )}
+
           {/* Course hero */}
           <div
             className={cn(
@@ -698,6 +756,18 @@ export function InstructorCoursePage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'syllabus' }))}
+                    className={cn(
+                      'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
+                      form.chapter_type === 'syllabus'
+                        ? 'ghibli-gradient-primary text-white shadow-sm'
+                        : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
+                    )}
+                  >
+                    📋 Syllabus
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'reading' }))}
                     className={cn(
                       'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
@@ -762,12 +832,18 @@ export function InstructorCoursePage() {
 
               <div className="border-t border-[#e8ddd0] pt-6">
                 <CardTitle className="text-base">
-                  {form.chapter_type === 'assignment' ? 'Assignment & Materials' : 'Reading Materials'}
+                  {form.chapter_type === 'assignment'
+                    ? 'Assignment & Materials'
+                    : form.chapter_type === 'syllabus'
+                      ? 'Syllabus Materials'
+                      : 'Reading Materials'}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   {form.chapter_type === 'assignment'
                     ? 'Upload materials, instructions, and a due date for students.'
-                    : 'Upload reading materials for students.'}
+                    : form.chapter_type === 'syllabus'
+                      ? 'Upload your syllabus document or supporting files for students.'
+                      : 'Upload reading materials for students.'}
                 </CardDescription>
                 {editingChapter ? (
                   <div className="mt-4 space-y-4">
@@ -868,6 +944,8 @@ export function InstructorCoursePage() {
                     <CardTitle className="text-base font-semibold">{chapter.title}</CardTitle>
                     {(chapter.chapter_type ?? 'reading') === 'assignment' ? (
                       <Badge className="bg-[#c2622a]/10 text-[#c2622a]">📝 Assignment</Badge>
+                    ) : (chapter.chapter_type ?? 'reading') === 'syllabus' ? (
+                      <Badge className="bg-amber-100 text-amber-800">📋 Syllabus</Badge>
                     ) : (
                       <Badge className="bg-blue-100 text-blue-700">📖 Reading</Badge>
                     )}
@@ -912,7 +990,11 @@ export function InstructorCoursePage() {
           ))}
           {chapters.length === 0 && !showForm && (
             <Card className="border-dashed border-[#e8ddd0] py-12 text-center">
-              <CardDescription>No chapters yet. Click &quot;Add New Reading&quot; or &quot;Add New Assignments&quot; to get started.</CardDescription>
+              <CardDescription>
+                {course.has_syllabus
+                  ? 'No chapters yet. Click "Add New Reading" or "Add New Assignments" to get started.'
+                  : 'No chapters yet. Start by adding your course syllabus.'}
+              </CardDescription>
             </Card>
           )}
         </div>
@@ -972,6 +1054,40 @@ export function InstructorCoursePage() {
           )}
         </div>
       </main>
+
+      {showSyllabusModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#2c1810]/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="syllabus-required-title"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-[#e8ddd0] bg-[#faf6f1] p-6 shadow-xl">
+            <h2 id="syllabus-required-title" className="font-serif text-xl font-semibold text-[#2c1810]">
+              Syllabus required
+            </h2>
+            <p className="mt-3 text-sm text-[#6b5c52]">
+              Please create and publish your Syllabus first before adding course content.
+            </p>
+            <p className="mt-2 text-xs text-[#6b5c52]">{SYLLABUS_REQUIRED_MESSAGE}</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                className="ghibli-gradient-primary hover:brightness-95"
+                onClick={() => {
+                  setShowSyllabusModal(false);
+                  handleOpenNewChapter('syllabus');
+                }}
+              >
+                Add Syllabus
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowSyllabusModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

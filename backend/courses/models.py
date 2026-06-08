@@ -44,6 +44,8 @@ class Course(models.Model):
 
     access_code = models.CharField(max_length=20, unique=True)
 
+    has_syllabus = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -81,6 +83,7 @@ class Course(models.Model):
 class Chapter(models.Model):
 
     class ChapterType(models.TextChoices):
+        SYLLABUS = 'syllabus', 'Syllabus'
         READING = 'reading', 'Reading'
         ASSIGNMENT = 'assignment', 'Assignment'
 

@@ -13,6 +13,7 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     }
     const data = error.response.data as Record<string, unknown> | string | undefined;
     if (typeof data === 'string') return data;
+    if (data?.error) return String(data.error);
     if (data?.detail) return String(data.detail);
     if (data?.non_field_errors) return String((data.non_field_errors as string[])[0]);
     const firstKey = data && typeof data === 'object' ? Object.keys(data)[0] : null;

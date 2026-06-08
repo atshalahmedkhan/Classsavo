@@ -44,6 +44,7 @@ class CourseFactory(DjangoModelFactory):
     title = factory.Sequence(lambda n: f'Course {n}')
     description = factory.Faker('paragraph')
     instructor = factory.SubFactory(InstructorFactory)
+    has_syllabus = True
 
 
 class ChapterFactory(DjangoModelFactory):

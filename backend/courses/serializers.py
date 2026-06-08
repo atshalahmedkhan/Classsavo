@@ -49,6 +49,7 @@ class CourseSerializer(serializers.ModelSerializer):
             'enrollment_count',
             'access_code',
             'thumbnail_url',
+            'has_syllabus',
         )
         read_only_fields = ('id', 'instructor', 'created_at')
 

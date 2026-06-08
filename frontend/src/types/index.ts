@@ -29,6 +29,7 @@ export interface Course {
   enrollment_count: number | null;
   access_code?: string | null;
   thumbnail_url?: string | null;
+  has_syllabus?: boolean;
 }
 
 export interface ChapterFile {
@@ -40,7 +41,7 @@ export interface ChapterFile {
   has_pdf_preview?: boolean;
 }
 
-export type ChapterType = 'reading' | 'assignment';
+export type ChapterType = 'syllabus' | 'reading' | 'assignment';
 
 export interface Chapter {
   id: number;
