@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -94,6 +94,7 @@ export function InstructorCoursePage() {
   const [courseDetailsSaving, setCourseDetailsSaving] = useState(false);
   const [courseDetailsError, setCourseDetailsError] = useState('');
   const [courseDetailsSuccess, setCourseDetailsSuccess] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -125,6 +126,14 @@ export function InstructorCoursePage() {
       .catch(() => setProgressReport(null))
       .finally(() => setProgressLoading(false));
   }, [activeTab, courseId]);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const id = window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [showForm, form.chapter_type, editingChapter?.id]);
 
   const resetForm = () => {
     setForm({
@@ -644,6 +653,171 @@ export function InstructorCoursePage() {
             </div>
           </div>
 
+          {showForm && (
+            <div ref={formRef} className="scroll-mt-6">
+              <Card className="mb-6 border-[#c2622a]/30 shadow-md ring-1 ring-[#c2622a]/10">
+                <CardTitle>{getChapterFormTitle(!!editingChapter, form.chapter_type)}</CardTitle>
+                <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                  <div>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'syllabus' }))}
+                        className={cn(
+                          'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
+                          form.chapter_type === 'syllabus'
+                            ? 'ghibli-gradient-primary text-white shadow-sm'
+                            : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
+                        )}
+                      >
+                        📋 Syllabus
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'reading' }))}
+                        className={cn(
+                          'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
+                          form.chapter_type === 'reading'
+                            ? 'ghibli-gradient-primary text-white shadow-sm'
+                            : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
+                        )}
+                      >
+                        📖 Reading
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'assignment' }))}
+                        className={cn(
+                          'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
+                          form.chapter_type === 'assignment'
+                            ? 'ghibli-gradient-primary text-white shadow-sm'
+                            : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
+                        )}
+                      >
+                        📝 Assignment
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Title</label>
+                    <Input
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="is_public"
+                      type="checkbox"
+                      checked={form.is_public}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (editingChapter) {
+                          void handleVisibilityCheckboxChange(checked);
+                        } else {
+                          setForm((prev) => ({ ...prev, is_public: checked }));
+                        }
+                      }}
+                    />
+                    <label htmlFor="is_public" className="text-sm">
+                      Public (visible to enrolled students)
+                      {editingChapter && (
+                        <span className="ml-1 text-xs text-[#6b5c52]">· saves immediately</span>
+                      )}
+                    </label>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Content</label>
+                    <PlateEditor
+                      editorKey={editingChapter?.id ?? 'new'}
+                      value={form.content}
+                      onChange={(content) => setForm({ ...form, content })}
+                    />
+                  </div>
+
+                  <div className="border-t border-[#e8ddd0] pt-6">
+                    <CardTitle className="text-base">
+                      {form.chapter_type === 'assignment'
+                        ? 'Assignment & Materials'
+                        : form.chapter_type === 'syllabus'
+                          ? 'Syllabus Materials'
+                          : 'Reading Materials'}
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      {form.chapter_type === 'assignment'
+                        ? 'Upload materials, instructions, and a due date for students.'
+                        : form.chapter_type === 'syllabus'
+                          ? 'Upload your syllabus document or supporting files for students.'
+                          : 'Upload reading materials for students.'}
+                    </CardDescription>
+                    {editingChapter ? (
+                      <div className="mt-4 space-y-4">
+                        <ChapterFileUpload
+                          chapterId={editingChapter.id}
+                          files={editingChapter.files ?? []}
+                          onFileUploaded={handleFileUploaded}
+                          onFileDeleted={handleFileDeleted}
+                          label="Upload Reading Materials"
+                        />
+                        {form.chapter_type === 'assignment' && (
+                          <>
+                            <div>
+                              <label className="mb-1 block text-sm font-medium">Assignment Instructions</label>
+                              <Textarea
+                                value={assignment.instructions}
+                                onChange={(e) => setAssignment({ ...assignment, instructions: e.target.value })}
+                                placeholder="e.g. Read pages 1–20 and answer the review questions"
+                                className="min-h-24"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#c2622a]">
+                                Due Date
+                              </label>
+                              <input
+                                type="datetime-local"
+                                value={assignment.dueDate}
+                                onChange={(e) => setAssignment({ ...assignment, dueDate: e.target.value })}
+                                className="w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1] px-4 py-3 text-[#2c1810] outline-none accent-[#c2622a] focus:border-[#c2622a]"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              className="ghibli-gradient-primary hover:brightness-95"
+                              disabled={assignmentSaving}
+                              onClick={handleSaveAssignment}
+                            >
+                              {assignmentSaving ? 'Saving...' : 'Save Assignment'}
+                            </Button>
+                            {assignmentError && <p className="text-sm text-destructive">{assignmentError}</p>}
+                            {assignmentSuccess && <p className="text-sm text-[#5a8a5a]">{assignmentSuccess}</p>}
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                        Save the chapter first (click <strong>Create</strong>), then you can upload reading materials
+                        {form.chapter_type === 'assignment' ? ' and add assignment details' : ''}.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={saving}>
+                      {getChapterSubmitLabel(!!editingChapter, saving, form.chapter_type)}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={resetForm}>
+                      Cancel
+                    </Button>
+                  </div>
+                  {formError && <p className="text-sm text-destructive">{formError}</p>}
+                  {formSuccess && <p className="text-sm text-[#5a8a5a]">{formSuccess}</p>}
+                </form>
+              </Card>
+            </div>
+          )}
+
           {activeTab === 'progress' && (
             <Card className="border-[#e8ddd0] shadow-sm">
               <CardTitle>Student Progress</CardTitle>
@@ -732,169 +906,6 @@ export function InstructorCoursePage() {
                 Manage chapters, content, and file uploads. Drag the grip handle to reorder. Any number of chapters can be public at the same time.
               </p>
             </div>
-
-        {showForm && (
-          <Card className="mb-6 border-[#e8ddd0] shadow-sm">
-            <CardTitle>{getChapterFormTitle(!!editingChapter, form.chapter_type)}</CardTitle>
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              <div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'syllabus' }))}
-                    className={cn(
-                      'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
-                      form.chapter_type === 'syllabus'
-                        ? 'ghibli-gradient-primary text-white shadow-sm'
-                        : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
-                    )}
-                  >
-                    📋 Syllabus
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'reading' }))}
-                    className={cn(
-                      'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
-                      form.chapter_type === 'reading'
-                        ? 'ghibli-gradient-primary text-white shadow-sm'
-                        : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
-                    )}
-                  >
-                    📖 Reading
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, chapter_type: 'assignment' }))}
-                    className={cn(
-                      'rounded-full px-5 py-2.5 text-sm font-semibold transition-colors',
-                      form.chapter_type === 'assignment'
-                        ? 'ghibli-gradient-primary text-white shadow-sm'
-                        : 'border border-[#e8ddd0] bg-white text-[#6b5c52] hover:border-[#c2622a]/40 hover:text-[#2c1810]',
-                    )}
-                  >
-                    📝 Assignment
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Title</label>
-                <Input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="is_public"
-                  type="checkbox"
-                  checked={form.is_public}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    if (editingChapter) {
-                      void handleVisibilityCheckboxChange(checked);
-                    } else {
-                      setForm((prev) => ({ ...prev, is_public: checked }));
-                    }
-                  }}
-                />
-                <label htmlFor="is_public" className="text-sm">
-                  Public (visible to enrolled students)
-                  {editingChapter && (
-                    <span className="ml-1 text-xs text-[#6b5c52]">· saves immediately</span>
-                  )}
-                </label>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium">Content</label>
-                <PlateEditor
-                  editorKey={editingChapter?.id ?? 'new'}
-                  value={form.content}
-                  onChange={(content) => setForm({ ...form, content })}
-                />
-              </div>
-
-              <div className="border-t border-[#e8ddd0] pt-6">
-                <CardTitle className="text-base">
-                  {form.chapter_type === 'assignment'
-                    ? 'Assignment & Materials'
-                    : form.chapter_type === 'syllabus'
-                      ? 'Syllabus Materials'
-                      : 'Reading Materials'}
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {form.chapter_type === 'assignment'
-                    ? 'Upload materials, instructions, and a due date for students.'
-                    : form.chapter_type === 'syllabus'
-                      ? 'Upload your syllabus document or supporting files for students.'
-                      : 'Upload reading materials for students.'}
-                </CardDescription>
-                {editingChapter ? (
-                  <div className="mt-4 space-y-4">
-                    <ChapterFileUpload
-                      chapterId={editingChapter.id}
-                      files={editingChapter.files ?? []}
-                      onFileUploaded={handleFileUploaded}
-                      onFileDeleted={handleFileDeleted}
-                      label="Upload Reading Materials"
-                    />
-                    {form.chapter_type === 'assignment' && (
-                      <>
-                        <div>
-                          <label className="mb-1 block text-sm font-medium">Assignment Instructions</label>
-                          <Textarea
-                            value={assignment.instructions}
-                            onChange={(e) => setAssignment({ ...assignment, instructions: e.target.value })}
-                            placeholder="e.g. Read pages 1–20 and answer the review questions"
-                            className="min-h-24"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#c2622a]">
-                            Due Date
-                          </label>
-                          <input
-                            type="datetime-local"
-                            value={assignment.dueDate}
-                            onChange={(e) => setAssignment({ ...assignment, dueDate: e.target.value })}
-                            className="w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1] px-4 py-3 text-[#2c1810] outline-none accent-[#c2622a] focus:border-[#c2622a]"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          className="ghibli-gradient-primary hover:brightness-95"
-                          disabled={assignmentSaving}
-                          onClick={handleSaveAssignment}
-                        >
-                          {assignmentSaving ? 'Saving...' : 'Save Assignment'}
-                        </Button>
-                        {assignmentError && <p className="text-sm text-destructive">{assignmentError}</p>}
-                        {assignmentSuccess && <p className="text-sm text-[#5a8a5a]">{assignmentSuccess}</p>}
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                    Save the chapter first (click <strong>Create</strong>), then you can upload reading materials
-                    {form.chapter_type === 'assignment' ? ' and add assignment details' : ''}.
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button type="submit" disabled={saving}>
-                  {getChapterSubmitLabel(!!editingChapter, saving, form.chapter_type)}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              </div>
-              {formError && <p className="text-sm text-destructive">{formError}</p>}
-              {formSuccess && <p className="text-sm text-[#5a8a5a]">{formSuccess}</p>}
-            </form>
-          </Card>
-        )}
 
         <div className="space-y-3">
           {chapters.map((chapter, index) => (
