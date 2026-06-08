@@ -1,5 +1,5 @@
 import client from './client';
-import type { Course, Enrollment, User } from '../types';
+import type { Course, Enrollment, FirstChapter, User } from '../types';
 
 export const coursesApi = {
   list: async () => {
@@ -9,6 +9,11 @@ export const coursesApi = {
 
   get: async (id: number) => {
     const { data } = await client.get<Course>(`/courses/${id}/`);
+    return data;
+  },
+
+  getFirstChapter: async (courseId: number) => {
+    const { data } = await client.get<FirstChapter>(`/courses/${courseId}/first-chapter/`);
     return data;
   },
 

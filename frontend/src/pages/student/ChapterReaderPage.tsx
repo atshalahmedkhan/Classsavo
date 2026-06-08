@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Calendar, CheckCircle2, ClipboardList } from 'lucide-react';
 import { chaptersApi } from '@/api/chapters';
+import { coursesApi } from '@/api/courses';
 import { AIChatPanel } from '@/components/AIChatPanel';
 import { CourseMaterialPanel } from '@/components/CourseMaterialPanel';
+import { StartCourseCard } from '@/components/student/StartCourseCard';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { PlateViewer } from '@/components/PlateViewer';
 import { Badge } from '@/components/ui/Badge';
@@ -11,7 +13,7 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { useChapterReadingTimer } from '@/hooks/useChapterReadingTimer';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
 import { formatDuration } from '@/lib/readingTime';
-import type { Chapter } from '@/types';
+import type { Chapter, FirstChapter } from '@/types';
 
 function formatDueDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -25,6 +27,7 @@ export function ChapterReaderPage() {
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [firstChapter, setFirstChapter] = useState<FirstChapter | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { getChapterProgress, refresh: refreshProgress } = useStudentProgress();
@@ -50,6 +53,7 @@ export function ChapterReaderPage() {
     const load = async () => {
       if (!chapterId || !courseId) return;
       setLoading(true);
+      setFirstChapter(null);
       try {
         const [chapterData, chapterList] = await Promise.all([
           chaptersApi.get(Number(chapterId)),
@@ -57,6 +61,15 @@ export function ChapterReaderPage() {
         ]);
         setChapter(chapterData);
         setChapters(chapterList);
+
+        if ((chapterData.chapter_type ?? 'reading') === 'syllabus') {
+          try {
+            const nextChapter = await coursesApi.getFirstChapter(Number(courseId));
+            setFirstChapter(nextChapter);
+          } catch {
+            setFirstChapter(null);
+          }
+        }
       } catch {
         setError('Unable to load this chapter. It may be private or unavailable.');
       } finally {
@@ -174,6 +187,10 @@ export function ChapterReaderPage() {
                   ))}
                 </div>
               </Card>
+            )}
+
+            {firstChapter && (
+              <StartCourseCard courseId={Number(courseId)} firstChapter={firstChapter} />
             )}
 
             {isAssignmentChapter && (

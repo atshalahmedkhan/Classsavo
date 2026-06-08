@@ -116,6 +116,26 @@ class CourseViewSet(viewsets.ModelViewSet):
         serializer = EnrollmentListSerializer(enrollments, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'], url_path='first-chapter')
+    def first_chapter(self, request, pk=None):
+        course = self.get_object()
+        if request.user.is_student:
+            if not Enrollment.objects.filter(student=request.user, course=course).exists():
+                return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        chapters = Chapter.objects.filter(course=course, is_public=True).order_by('order', 'id')
+        for chapter in chapters:
+            if chapter_qualifies_as_syllabus(chapter.title, chapter.chapter_type):
+                continue
+            return Response(
+                {
+                    'chapter_id': chapter.id,
+                    'title': chapter.title,
+                    'type': chapter.chapter_type,
+                }
+            )
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=True, methods=['post'], url_path='join', permission_classes=[IsAuthenticated, IsStudent])
     def join(self, request, pk=None):
         course = self.get_object()

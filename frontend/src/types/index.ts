@@ -18,6 +18,12 @@ export interface AuthTokens {
   refresh: string;
 }
 
+export interface FirstChapter {
+  chapter_id: number;
+  title: string;
+  type: 'reading' | 'assignment';
+}
+
 export interface Course {
   id: number;
   title: string;
