@@ -20,7 +20,9 @@ class TestFileUpload:
         )
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['file_name'] == 'notes.pdf'
-        assert ChapterFile.objects.filter(chapter=private_chapter).exists()
+        chapter_file = ChapterFile.objects.get(chapter=private_chapter, file_name='notes.pdf')
+        assert chapter_file.file_data
+        assert chapter_file.file_mime_type == 'application/pdf'
 
     def test_instructor_can_upload_image_to_chapter(self, instructor_client, private_chapter, tiny_png):
         response = instructor_client.post(
@@ -98,8 +100,7 @@ class TestFileUpload:
         response = student_client.get(f'/api/chapter-files/{chapter_file.id}/preview/')
         assert response.status_code == status.HTTP_200_OK
         assert response['Content-Type'] == 'application/pdf'
-        body = b''.join(response.streaming_content)
-        assert body.startswith(b'%PDF')
+        assert response.content.startswith(b'%PDF')
 
 
 @pytest.mark.django_db

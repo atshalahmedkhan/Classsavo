@@ -18,6 +18,11 @@ from accounts.permissions import IsStudent
 from .file_conversion import convert_docx_to_pdf
 from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment
 from .ai_chat_utils import build_ai_tutor_system_prompt
+from .chapter_file_utils import (
+    get_file_response_parts,
+    get_preview_response_parts,
+    persist_chapter_file_bytes,
+)
 from .notification_services import check_assignment_due_notifications, create_chapter_published_notifications
 from .permissions import (
     ChapterPermission,
@@ -234,17 +239,32 @@ class ChapterViewSet(viewsets.ModelViewSet):
         if extension not in ALLOWED_FILE_EXTENSIONS:
             raise ValidationError({'file': 'Unsupported file type. Allowed: PDF, DOCX, PNG, and JPG.'})
 
+        if hasattr(uploaded_file, 'seek'):
+            uploaded_file.seek(0)
+        file_bytes = uploaded_file.read()
+        if hasattr(uploaded_file, 'seek'):
+            uploaded_file.seek(0)
+
         chapter_file = ChapterFile.objects.create(
             chapter=chapter,
             file=uploaded_file,
             file_name=uploaded_file.name,
         )
 
+        preview_bytes = None
         if extension == '.docx':
             pdf_bytes = convert_docx_to_pdf(chapter_file.file.path)
             if pdf_bytes:
+                preview_bytes = pdf_bytes
                 preview_name = f'{os.path.splitext(uploaded_file.name)[0]}.pdf'
                 chapter_file.preview_file.save(preview_name, ContentFile(pdf_bytes), save=True)
+
+        persist_chapter_file_bytes(
+            chapter_file,
+            file_bytes=file_bytes,
+            preview_bytes=preview_bytes,
+        )
+        chapter_file.refresh_from_db()
 
         serializer = ChapterFileSerializer(chapter_file, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -303,19 +323,16 @@ class ChapterFileViewSet(mixins.DestroyModelMixin, viewsets.GenericViewSet):
         if not user_can_access_chapter_file(request.user, chapter_file):
             raise PermissionDenied('You do not have access to this file.')
 
-        if chapter_file.preview_file:
-            file_handle = chapter_file.preview_file.open('rb')
-            content_type = 'application/pdf'
-            download_name = f'{os.path.splitext(chapter_file.file_name)[0]}.pdf'
-        else:
-            file_handle = chapter_file.file.open('rb')
-            content_type, _ = mimetypes.guess_type(chapter_file.file_name)
-            if not content_type:
-                content_type = 'application/octet-stream'
-            download_name = chapter_file.file_name
+        parts = get_preview_response_parts(chapter_file)
+        if parts is None:
+            parts = get_file_response_parts(chapter_file)
+        if parts is None:
+            raise Http404('File not found.')
 
-        response = FileResponse(file_handle, content_type=content_type, as_attachment=False)
+        file_bytes, content_type, download_name = parts
+        response = HttpResponse(file_bytes, content_type=content_type)
         response['Content-Disposition'] = f'inline; filename="{download_name}"'
+        response['Cache-Control'] = 'private, max-age=3600'
         return response
 
     def perform_destroy(self, instance):

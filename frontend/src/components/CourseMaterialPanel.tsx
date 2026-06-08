@@ -46,6 +46,17 @@ export function CourseMaterialPanel({ file }: CourseMaterialPanelProps) {
       setError('');
       try {
         const blob = await chaptersApi.getPreviewBlob(file.id);
+        if (!blob.size) {
+          throw new Error('Empty file response');
+        }
+        if (
+          previewKind === 'pdf' &&
+          blob.type &&
+          !blob.type.includes('pdf') &&
+          !blob.type.includes('octet-stream')
+        ) {
+          throw new Error('Invalid PDF response');
+        }
         url = URL.createObjectURL(blob);
         if (!revoked) setObjectUrl(url);
       } catch {

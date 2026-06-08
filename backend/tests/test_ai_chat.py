@@ -6,7 +6,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from rest_framework import status
 
-from courses.ai_chat_utils import build_ai_tutor_system_prompt, extract_text_from_pdf_file
+from courses.ai_chat_utils import build_ai_tutor_system_prompt, extract_text_from_pdf_bytes
 from courses.models import Chapter, ChapterFile
 
 
@@ -34,9 +34,8 @@ class TestAIChatUtils:
         assert instructor_user.username in prompt
         assert 'Hello world' in prompt
 
-    def test_extract_text_from_pdf_file_returns_empty_on_invalid_pdf(self):
-        bad_file = SimpleUploadedFile('bad.pdf', b'not-a-pdf', content_type='application/pdf')
-        assert extract_text_from_pdf_file(bad_file) == ''
+    def test_extract_text_from_pdf_bytes_returns_empty_on_invalid_pdf(self):
+        assert extract_text_from_pdf_bytes(b'not-a-pdf') == ''
 
 
 @pytest.mark.django_db

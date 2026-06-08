@@ -25,7 +25,7 @@ class ChapterFileSerializer(serializers.ModelSerializer):
         return obj.file.url
 
     def get_has_pdf_preview(self, obj):
-        return bool(obj.preview_file)
+        return bool(obj.preview_data or obj.preview_file)
 
 
 class CourseSerializer(serializers.ModelSerializer):

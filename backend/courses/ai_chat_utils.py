@@ -14,24 +14,38 @@ def format_readable_datetime(value) -> str:
     return local_value.strftime('%B %d, %Y at %I:%M %p').replace(' 0', ' ')
 
 
-def _pdf_source_for_chapter_file(chapter_file: ChapterFile):
-    if chapter_file.file.name.lower().endswith('.pdf'):
-        return chapter_file.file
+def _pdf_bytes_for_chapter_file(chapter_file: ChapterFile) -> bytes | None:
+    if chapter_file.file_name.lower().endswith('.pdf'):
+        if chapter_file.file_data:
+            return chapter_file.file_data
+        if chapter_file.file:
+            try:
+                with chapter_file.file.open('rb') as pdf_handle:
+                    return pdf_handle.read()
+            except (OSError, ValueError):
+                pass
+    if chapter_file.preview_data:
+        return chapter_file.preview_data
     if chapter_file.preview_file:
-        return chapter_file.preview_file
+        try:
+            with chapter_file.preview_file.open('rb') as preview_handle:
+                return preview_handle.read()
+        except (OSError, ValueError):
+            return None
     return None
 
 
-def extract_text_from_pdf_file(file_field) -> str:
-    if not file_field:
+def extract_text_from_pdf_bytes(data: bytes) -> str:
+    if not data:
         return ''
     try:
-        with file_field.open('rb') as pdf_handle:
-            reader = PdfReader(pdf_handle)
-            pages = []
-            for page in reader.pages:
-                pages.append(page.extract_text() or '')
-            return '\n'.join(pages).strip()
+        from io import BytesIO
+
+        reader = PdfReader(BytesIO(data))
+        pages = []
+        for page in reader.pages:
+            pages.append(page.extract_text() or '')
+        return '\n'.join(pages).strip()
     except Exception:
         return ''
 
@@ -48,11 +62,11 @@ def extract_chapter_files_content(chapter: Chapter) -> tuple[str, str]:
             f"- '{chapter_file.file_name}' uploaded by {instructor_username} on {upload_date}"
         )
 
-        pdf_source = _pdf_source_for_chapter_file(chapter_file)
-        if not pdf_source:
+        pdf_bytes = _pdf_bytes_for_chapter_file(chapter_file)
+        if not pdf_bytes:
             continue
 
-        extracted_text = extract_text_from_pdf_file(pdf_source)
+        extracted_text = extract_text_from_pdf_bytes(pdf_bytes)
         if extracted_text:
             extracted_chunks.append(f"--- {chapter_file.file_name} ---\n{extracted_text}")
 

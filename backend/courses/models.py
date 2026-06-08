@@ -144,6 +144,10 @@ class ChapterFile(models.Model):
 
     preview_file = models.FileField(upload_to='chapter_files/previews/', null=True, blank=True)
 
+    file_data = models.BinaryField(blank=True, null=True)
+    preview_data = models.BinaryField(blank=True, null=True)
+    file_mime_type = models.CharField(max_length=100, blank=True, default='')
+
     file_name = models.CharField(max_length=255)
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
