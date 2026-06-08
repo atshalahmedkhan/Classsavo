@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DragEvent, FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import client from '@/api/client';
 import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { progressApi } from '@/api/progress';
@@ -26,6 +27,8 @@ import {
   Plus,
   Trash2,
   Upload,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/apiError';
@@ -38,6 +41,42 @@ const emptyContent: Value = [{ type: 'p', children: [{ text: '' }] }];
 
 const SYLLABUS_REQUIRED_MESSAGE =
   'You must publish a syllabus chapter first before adding readings or assignments.';
+
+interface AssignmentSubmission {
+  id: number;
+  student: User;
+  chapter: number;
+  submitted_image_url: string | null;
+  annotated_image_url: string | null;
+  submitted_at: string;
+  instructor_remarks: string;
+  score: number | null;
+  status: 'submitted' | 'reviewed';
+  returned_at: string | null;
+}
+
+function getStudentDisplayName(student: User): string {
+  const full = `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim();
+  return full || student.username;
+}
+
+function getStudentInitial(student: User): string {
+  return getStudentDisplayName(student).charAt(0).toUpperCase();
+}
+
+function formatSubmissionTimestamp(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function isPdfUrl(url: string): boolean {
+  return url.split('?')[0].toLowerCase().endsWith('.pdf');
+}
 
 function getChapterFormTitle(editing: boolean, chapterType: ChapterType) {
   if (chapterType === 'syllabus') {
@@ -69,7 +108,7 @@ function isSyllabusRequiredError(error: unknown): boolean {
 export function InstructorCoursePage() {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'curriculum' | 'progress'>('curriculum');
+  const [activeTab, setActiveTab] = useState<'curriculum' | 'progress' | 'submissions'>('curriculum');
   const [progressReport, setProgressReport] = useState<CourseProgressReport | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
@@ -112,6 +151,23 @@ export function InstructorCoursePage() {
   const formRef = useRef<HTMLDivElement>(null);
   const chapterFormRef = useRef<HTMLFormElement>(null);
   const materialsRef = useRef<HTMLDivElement>(null);
+  const [selectedAssignmentChapterId, setSelectedAssignmentChapterId] = useState<number | null>(null);
+  const [submissions, setSubmissions] = useState<AssignmentSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [reviewingSubmission, setReviewingSubmission] = useState<AssignmentSubmission | null>(null);
+  const [feedbackRemarks, setFeedbackRemarks] = useState('');
+  const [feedbackScore, setFeedbackScore] = useState('');
+  const [annotatedFile, setAnnotatedFile] = useState<File | null>(null);
+  const [annotatedPreviewUrl, setAnnotatedPreviewUrl] = useState<string | null>(null);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
+  const annotatedInputRef = useRef<HTMLInputElement>(null);
+
+  const assignmentChapters = chapters.filter(
+    (ch) => (ch.chapter_type ?? 'reading') === 'assignment',
+  );
+  const hasAssignmentChapters = assignmentChapters.length > 0;
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -143,6 +199,92 @@ export function InstructorCoursePage() {
       .catch(() => setProgressReport(null))
       .finally(() => setProgressLoading(false));
   }, [activeTab, courseId]);
+
+  useEffect(() => {
+    if (assignmentChapters.length === 0) {
+      setSelectedAssignmentChapterId(null);
+      return;
+    }
+    setSelectedAssignmentChapterId((prev) =>
+      prev && assignmentChapters.some((ch) => ch.id === prev) ? prev : assignmentChapters[0].id,
+    );
+  }, [chapters]);
+
+  useEffect(() => {
+    if (activeTab !== 'submissions' || !selectedAssignmentChapterId) return;
+    setSubmissionsLoading(true);
+    client
+      .get<AssignmentSubmission[]>(`/chapters/${selectedAssignmentChapterId}/submissions/`)
+      .then(({ data }) => setSubmissions(data))
+      .catch(() => setSubmissions([]))
+      .finally(() => setSubmissionsLoading(false));
+  }, [activeTab, selectedAssignmentChapterId]);
+
+  useEffect(() => {
+    return () => {
+      if (annotatedPreviewUrl) URL.revokeObjectURL(annotatedPreviewUrl);
+    };
+  }, [annotatedPreviewUrl]);
+
+  const openReviewModal = (submission: AssignmentSubmission) => {
+    setReviewingSubmission(submission);
+    setFeedbackRemarks(submission.instructor_remarks ?? '');
+    setFeedbackScore(submission.score !== null && submission.score !== undefined ? String(submission.score) : '');
+    setAnnotatedFile(null);
+    if (annotatedPreviewUrl) URL.revokeObjectURL(annotatedPreviewUrl);
+    setAnnotatedPreviewUrl(null);
+    setFeedbackSent(false);
+    setFeedbackError('');
+  };
+
+  const closeReviewModal = () => {
+    setReviewingSubmission(null);
+    setFeedbackRemarks('');
+    setFeedbackScore('');
+    setAnnotatedFile(null);
+    if (annotatedPreviewUrl) URL.revokeObjectURL(annotatedPreviewUrl);
+    setAnnotatedPreviewUrl(null);
+    setFeedbackSent(false);
+    setFeedbackError('');
+  };
+
+  const handleAnnotatedFileSelect = (file: File) => {
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!['.jpg', '.jpeg', '.png'].includes(extension)) {
+      setFeedbackError('Annotated version must be JPG or PNG.');
+      return;
+    }
+    setFeedbackError('');
+    setAnnotatedFile(file);
+    if (annotatedPreviewUrl) URL.revokeObjectURL(annotatedPreviewUrl);
+    setAnnotatedPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleReturnFeedback = async () => {
+    if (!reviewingSubmission) return;
+    setFeedbackSaving(true);
+    setFeedbackError('');
+    try {
+      const formData = new FormData();
+      if (annotatedFile) formData.append('annotated_image', annotatedFile);
+      formData.append('remarks', feedbackRemarks);
+      if (feedbackScore.trim() !== '') {
+        formData.append('score', feedbackScore);
+      }
+      await client.post(`/submissions/${reviewingSubmission.id}/feedback/`, formData);
+      setFeedbackSent(true);
+      if (selectedAssignmentChapterId) {
+        const { data } = await client.get<AssignmentSubmission[]>(
+          `/chapters/${selectedAssignmentChapterId}/submissions/`,
+        );
+        setSubmissions(data);
+      }
+    } catch (err) {
+      setFeedbackError(getApiErrorMessage(err, 'Could not return feedback.'));
+    } finally {
+      setFeedbackSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!showForm) return;
@@ -748,6 +890,19 @@ export function InstructorCoursePage() {
               >
                 Student Progress
               </button>
+              {hasAssignmentChapters && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('submissions')}
+                  className={`border-b-2 px-4 py-2 text-sm font-medium ${
+                    activeTab === 'submissions'
+                      ? 'border-[#c2622a] text-[#c2622a]'
+                      : 'border-transparent text-[#6b5c52] hover:text-[#2c1810]'
+                  }`}
+                >
+                  Submissions
+                </button>
+              )}
             </div>
             <div className="mb-1 flex flex-wrap gap-2">
               <Button
@@ -1019,6 +1174,80 @@ export function InstructorCoursePage() {
             </Card>
           )}
 
+          {activeTab === 'submissions' && (
+            <section>
+              <div className="mb-4">
+                <h2 className="text-lg font-bold text-[#2c1810]">Assignment Submissions</h2>
+                <p className="text-sm text-[#6b5c52]">
+                  Review student work and return annotated feedback.
+                </p>
+              </div>
+              <div className="mb-6">
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#c2622a]">
+                  Assignment chapter
+                </label>
+                <select
+                  value={selectedAssignmentChapterId ?? ''}
+                  onChange={(e) => setSelectedAssignmentChapterId(Number(e.target.value))}
+                  className="w-full max-w-md rounded-xl border border-[#e8ddd0] bg-[#faf6f1] px-4 py-3 text-sm text-[#2c1810] outline-none focus:border-[#c2622a]"
+                >
+                  {assignmentChapters.map((ch) => (
+                    <option key={ch.id} value={ch.id}>
+                      {ch.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {submissionsLoading ? (
+                <p className="text-sm text-[#6b5c52]">Loading submissions...</p>
+              ) : submissions.length === 0 ? (
+                <Card className="border-dashed border-[#e8ddd0] py-12 text-center">
+                  <CardDescription>No submissions yet for this assignment.</CardDescription>
+                </Card>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {submissions.map((submission) => (
+                    <Card
+                      key={submission.id}
+                      className="border border-[#e8ddd0] bg-white shadow-sm"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#c2622a]/15 text-sm font-bold text-[#c2622a]">
+                          {getStudentInitial(submission.student)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-[#2c1810]">
+                            {getStudentDisplayName(submission.student)}
+                          </p>
+                          <p className="mt-1 text-xs text-[#6b5c52]">
+                            {formatSubmissionTimestamp(submission.submitted_at)}
+                          </p>
+                          <Badge
+                            className={`mt-2 ${
+                              submission.status === 'reviewed'
+                                ? 'bg-[#5a8a5a]/15 text-[#5a8a5a]'
+                                : 'bg-[#c2622a]/10 text-[#c2622a]'
+                            }`}
+                          >
+                            {submission.status === 'reviewed' ? 'Reviewed' : 'Submitted'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="mt-4 w-full ghibli-gradient-primary hover:brightness-95"
+                        onClick={() => openReviewModal(submission)}
+                      >
+                        Review
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {activeTab === 'curriculum' && (
           <>
           {/* Curriculum section */}
@@ -1188,6 +1417,132 @@ export function InstructorCoursePage() {
           )}
         </div>
       </main>
+
+      {reviewingSubmission && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#e8ddd0] bg-white p-6 shadow-xl">
+            <h2 className="font-serif text-xl font-semibold text-[#2c1810]">
+              Review — {getStudentDisplayName(reviewingSubmission.student)}
+            </h2>
+            {feedbackSent ? (
+              <div className="mt-6 rounded-2xl border border-[#5a8a5a]/30 bg-[#5a8a5a]/10 px-5 py-8 text-center">
+                <Check className="mx-auto h-10 w-10 text-[#5a8a5a]" />
+                <p className="mt-3 text-lg font-semibold text-[#5a8a5a]">Feedback Sent</p>
+                <Button type="button" variant="outline" className="mt-6" onClick={closeReviewModal}>
+                  Close
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-5">
+                {reviewingSubmission.submitted_image_url && (
+                  <div className="space-y-2">
+                    {isPdfUrl(reviewingSubmission.submitted_image_url) ? (
+                      <iframe
+                        title="Student submission"
+                        src={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
+                        className="h-96 w-full rounded-xl border border-[#e8ddd0] bg-[#faf6f1]"
+                      />
+                    ) : (
+                      <img
+                        src={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
+                        alt="Student submission"
+                        className="w-full rounded-xl border border-[#e8ddd0] object-contain"
+                      />
+                    )}
+                    <a
+                      href={normalizeMediaUrl(reviewingSubmission.submitted_image_url)}
+                      download
+                      className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download submission
+                    </a>
+                  </div>
+                )}
+                <div>
+                  <input
+                    ref={annotatedInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAnnotatedFileSelect(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => annotatedInputRef.current?.click()}
+                    className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#e8ddd0] bg-[#faf6f1] px-4 py-6 text-center hover:border-[#c2622a]/40"
+                  >
+                    <Upload className="mb-2 h-6 w-6 text-[#c2622a]" />
+                    <p className="text-sm font-medium text-[#2c1810]">
+                      Upload Annotated Version (optional)
+                    </p>
+                    {annotatedFile && (
+                      <p className="mt-2 text-xs text-[#6b5c52]">{annotatedFile.name}</p>
+                    )}
+                  </button>
+                  {annotatedPreviewUrl && (
+                    <img
+                      src={annotatedPreviewUrl}
+                      alt="Annotated preview"
+                      className="mt-3 max-h-48 w-full rounded-xl border border-[#e8ddd0] object-contain"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-[#2c1810]">
+                    Feedback / Remarks
+                  </label>
+                  <Textarea
+                    value={feedbackRemarks}
+                    onChange={(e) => setFeedbackRemarks(e.target.value)}
+                    placeholder="Write your feedback here..."
+                    className="min-h-28 border-[#e8ddd0] bg-[#faf6f1] text-[#2c1810]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#c2622a]">
+                    Score (optional)
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={feedbackScore}
+                    onChange={(e) => setFeedbackScore(e.target.value)}
+                    placeholder="0–100"
+                    className="max-w-[120px] border-[#e8ddd0] bg-[#faf6f1]"
+                  />
+                </div>
+                {feedbackError && <p className="text-sm text-destructive">{feedbackError}</p>}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="ghibli-gradient-primary hover:brightness-95"
+                    disabled={feedbackSaving}
+                    onClick={() => void handleReturnFeedback()}
+                  >
+                    {feedbackSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Return to Student'
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={closeReviewModal}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showSyllabusModal && (
         <div

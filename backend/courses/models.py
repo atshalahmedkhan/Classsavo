@@ -217,6 +217,45 @@ class ChapterProgress(models.Model):
 
 
 
+class AssignmentSubmission(models.Model):
+
+    class Status(models.TextChoices):
+        SUBMITTED = 'submitted', 'Submitted'
+        REVIEWED = 'reviewed', 'Reviewed'
+
+    student = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='assignment_submissions',
+    )
+    chapter = models.ForeignKey(
+        Chapter,
+        on_delete=models.CASCADE,
+        related_name='assignment_submissions',
+    )
+    submitted_image = models.FileField(upload_to='submissions/')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    annotated_image = models.ImageField(upload_to='annotations/', null=True, blank=True)
+    instructor_remarks = models.TextField(blank=True, default='')
+    score = models.IntegerField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SUBMITTED,
+    )
+    returned_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('student', 'chapter')
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f'{self.student.username} - {self.chapter.title} submission'
+
+
+
+
+
 class Message(models.Model):
 
     sender = models.ForeignKey(

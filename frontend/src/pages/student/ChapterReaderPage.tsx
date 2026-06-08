@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, ClipboardList } from 'lucide-react';
+import axios from 'axios';
+import { CheckCircle2, ClipboardList, Download, FileText, Loader2, Upload } from 'lucide-react';
+import client from '@/api/client';
 import { chaptersApi } from '@/api/chapters';
 import { coursesApi } from '@/api/courses';
 import { AIChatPanel } from '@/components/AIChatPanel';
@@ -10,12 +12,52 @@ import { StartCourseCard } from '@/components/student/StartCourseCard';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { PlateViewer } from '@/components/PlateViewer';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { useChapterReadingTimer } from '@/hooks/useChapterReadingTimer';
 import { useStudentProgress } from '@/hooks/useStudentProgress';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { isSyllabusChapter, partitionChapters } from '@/lib/chapterUtils';
+import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { formatDuration } from '@/lib/readingTime';
-import type { Chapter, FirstChapter } from '@/types';
+import type { Chapter, FirstChapter, User } from '@/types';
+
+interface AssignmentSubmission {
+  id: number;
+  student: User;
+  chapter: number;
+  submitted_image_url: string | null;
+  annotated_image_url: string | null;
+  submitted_at: string;
+  instructor_remarks: string;
+  score: number | null;
+  status: 'submitted' | 'reviewed';
+  returned_at: string | null;
+}
+
+const SUBMISSION_ACCEPT = '.pdf,.jpg,.jpeg,.png';
+const SUBMISSION_ALLOWED = new Set(['.pdf', '.jpg', '.jpeg', '.png']);
+
+function getFileExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
+}
+
+function formatSubmissionTimestamp(iso: string): string {
+  const formatted = new Date(iso).toLocaleString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return formatted;
+}
+
+function isPdfUrl(url: string): boolean {
+  const path = url.split('?')[0].toLowerCase();
+  return path.endsWith('.pdf');
+}
 
 export function ChapterReaderPage() {
   const { courseId, chapterId } = useParams();
@@ -25,6 +67,13 @@ export function ChapterReaderPage() {
   const [firstChapter, setFirstChapter] = useState<FirstChapter | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [submission, setSubmission] = useState<AssignmentSubmission | null>(null);
+  const [submissionLoading, setSubmissionLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { getChapterProgress, refresh: refreshProgress } = useStudentProgress();
 
   const chapterProgress = chapter ? getChapterProgress(chapter.id) : undefined;
@@ -73,6 +122,73 @@ export function ChapterReaderPage() {
     };
     load();
   }, [chapterId, courseId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  useEffect(() => {
+    const loadSubmission = async () => {
+      if (!chapterId || !chapter || (chapter.chapter_type ?? 'reading') !== 'assignment') {
+        setSubmission(null);
+        return;
+      }
+      setSubmissionLoading(true);
+      try {
+        const { data } = await client.get<AssignmentSubmission>(
+          `/chapters/${chapterId}/my-submission/`,
+        );
+        setSubmission(data);
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setSubmission(null);
+        }
+      } finally {
+        setSubmissionLoading(false);
+      }
+    };
+    void loadSubmission();
+  }, [chapterId, chapter]);
+
+  const handleFileSelect = (file: File) => {
+    const extension = getFileExtension(file.name);
+    if (!SUBMISSION_ALLOWED.has(extension)) {
+      setSubmissionError('Please upload a PDF or image file (JPG, PNG) only');
+      return;
+    }
+    setSubmissionError('');
+    setSelectedFile(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (extension === '.pdf') {
+      setPreviewUrl(null);
+    } else {
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmitAssignment = async () => {
+    if (!selectedFile || !chapterId) return;
+    setUploading(true);
+    setSubmissionError('');
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      const { data } = await client.post<AssignmentSubmission>(
+        `/chapters/${chapterId}/submit/`,
+        formData,
+      );
+      setSubmission(data);
+      setSelectedFile(null);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    } catch (err) {
+      setSubmissionError(getApiErrorMessage(err, 'Could not submit assignment.'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -254,6 +370,162 @@ export function ChapterReaderPage() {
                         ))}
                       </div>
                     </div>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {isAssignmentChapter && (
+              <Card className="mt-8 border border-[#e8ddd0] bg-white shadow-sm">
+                <CardTitle className="border-b border-[#e8ddd0] px-6 py-4 text-lg text-[#2c1810]">
+                  Submit Your Work
+                </CardTitle>
+                <div className="space-y-6 p-6">
+                  {submissionLoading ? (
+                    <p className="text-sm text-[#6b5c52]">Loading submission...</p>
+                  ) : !submission ? (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={SUBMISSION_ACCEPT}
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileSelect(file);
+                          e.target.value = '';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex w-full flex-col items-center justify-center rounded-2xl border border-dashed border-[#e8ddd0] bg-[#faf6f1] px-6 py-10 text-center transition-colors hover:border-[#c2622a]/40"
+                      >
+                        <Upload className="mb-3 h-8 w-8 text-[#c2622a]" />
+                        <p className="font-medium text-[#2c1810]">
+                          Upload a photo of your completed work
+                        </p>
+                        <p className="mt-1 text-sm text-[#6b5c52]">PDF, JPG, or PNG</p>
+                        {selectedFile && (
+                          <div className="mt-4 w-full max-w-md">
+                            {previewUrl ? (
+                              <img
+                                src={previewUrl}
+                                alt="Submission preview"
+                                className="mx-auto max-h-48 rounded-xl border border-[#e8ddd0] object-contain"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center gap-2 rounded-xl border border-[#e8ddd0] bg-white px-4 py-3 text-sm text-[#2c1810]">
+                                <FileText className="h-5 w-5 text-[#c2622a]" />
+                                {selectedFile.name}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </button>
+                      {submissionError && (
+                        <p className="text-sm text-destructive">{submissionError}</p>
+                      )}
+                      <Button
+                        type="button"
+                        className="ghibli-gradient-primary hover:brightness-95"
+                        disabled={!selectedFile || uploading}
+                        onClick={() => void handleSubmitAssignment()}
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          'Submit Assignment'
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-2xl border border-[#e8ddd0] bg-[#faf6f1] p-4">
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <Badge
+                            className={
+                              submission.status === 'reviewed'
+                                ? 'bg-[#5a8a5a]/15 text-[#5a8a5a]'
+                                : 'bg-[#c2622a]/10 text-[#c2622a]'
+                            }
+                          >
+                            {submission.status === 'reviewed' ? 'Reviewed' : 'Submitted'}
+                          </Badge>
+                          <p className="text-sm text-[#6b5c52]">
+                            Submitted {formatSubmissionTimestamp(submission.submitted_at)}
+                          </p>
+                        </div>
+                        {submission.submitted_image_url && (
+                          <div className="space-y-3">
+                            {isPdfUrl(submission.submitted_image_url) ? (
+                              <iframe
+                                title="Submitted assignment"
+                                src={normalizeMediaUrl(submission.submitted_image_url)}
+                                className="h-96 w-full rounded-xl border border-[#e8ddd0] bg-white"
+                              />
+                            ) : (
+                              <img
+                                src={normalizeMediaUrl(submission.submitted_image_url)}
+                                alt="Your submission"
+                                className="max-h-96 w-full rounded-xl border border-[#e8ddd0] object-contain"
+                              />
+                            )}
+                            <a
+                              href={normalizeMediaUrl(submission.submitted_image_url)}
+                              download
+                              className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
+                            >
+                              <Download className="h-4 w-4" />
+                              Download submission
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      {submission.status === 'reviewed' && (
+                        <Card className="border-l-4 border-l-[#5a8a5a] border-[#e8ddd0] bg-white shadow-sm">
+                          <CardTitle className="text-lg text-[#2c1810]">Instructor Feedback</CardTitle>
+                          <div className="mt-4 space-y-4">
+                            {submission.annotated_image_url && (
+                              <div className="space-y-2">
+                                <img
+                                  src={normalizeMediaUrl(submission.annotated_image_url)}
+                                  alt="Annotated feedback"
+                                  className="w-full rounded-xl border border-[#e8ddd0] object-contain"
+                                />
+                                <a
+                                  href={normalizeMediaUrl(submission.annotated_image_url)}
+                                  download
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-[#c2622a] hover:underline"
+                                >
+                                  <Download className="h-4 w-4" />
+                                  Download annotated version
+                                </a>
+                              </div>
+                            )}
+                            {submission.instructor_remarks?.trim() && (
+                              <p className="font-serif text-base text-[#2c1810] whitespace-pre-wrap">
+                                {submission.instructor_remarks}
+                              </p>
+                            )}
+                            {submission.score !== null && submission.score !== undefined && (
+                              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#c2622a]/10 text-lg font-bold text-[#c2622a]">
+                                {submission.score}/100
+                              </div>
+                            )}
+                            {submission.returned_at && (
+                              <p className="text-sm text-[#6b5c52]">
+                                Reviewed {formatSubmissionTimestamp(submission.returned_at)}
+                              </p>
+                            )}
+                          </div>
+                        </Card>
+                      )}
+                    </>
                   )}
                 </div>
               </Card>

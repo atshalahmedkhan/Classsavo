@@ -3,8 +3,10 @@ import os
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db import IntegrityError
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from groq import Groq
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -16,7 +18,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsStudent
 
 from .file_conversion import convert_docx_to_pdf
-from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment
+from .models import AssignmentSubmission, Chapter, ChapterFile, ChapterProgress, Course, Enrollment
 from .ai_chat_utils import build_ai_tutor_system_prompt
 from .syllabus_utils import (
     SYLLABUS_REQUIRED_ERROR,
@@ -36,6 +38,7 @@ from .permissions import (
     user_can_access_chapter_file,
 )
 from .serializers import (
+    AssignmentSubmissionSerializer,
     ChapterFileSerializer,
     ChapterProgressSerializer,
     ChapterProgressUpdateSerializer,
@@ -45,9 +48,23 @@ from .serializers import (
     CourseSerializer,
     EnrollmentListSerializer,
     EnrollmentSerializer,
+    SubmissionCreateSerializer,
+    SubmissionFeedbackSerializer,
 )
 
 ALLOWED_FILE_EXTENSIONS = {'.pdf', '.docx', '.png', '.jpg', '.jpeg'}
+ANNOTATED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg'}
+
+
+def _student_can_access_chapter(user, chapter):
+    return chapter.is_public and Enrollment.objects.filter(
+        student=user,
+        course=chapter.course,
+    ).exists()
+
+
+def _instructor_owns_chapter(user, chapter):
+    return chapter.course.instructor == user
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -341,6 +358,126 @@ class ChapterViewSet(viewsets.ModelViewSet):
         check_assignment_due_notifications(request.user)
 
         output = ChapterProgressSerializer(progress)
+        return Response(output.data)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='submit',
+        permission_classes=[IsAuthenticated, IsStudent],
+    )
+    def submit(self, request, pk=None):
+        chapter = self.get_object()
+        if chapter.chapter_type != Chapter.ChapterType.ASSIGNMENT:
+            return Response(
+                {'detail': 'Submissions are only allowed for assignment chapters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not _student_can_access_chapter(request.user, chapter):
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SubmissionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        uploaded_file = serializer.validated_data['image']
+
+        if AssignmentSubmission.objects.filter(student=request.user, chapter=chapter).exists():
+            return Response(
+                {'detail': 'You have already submitted for this assignment.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            submission = AssignmentSubmission.objects.create(
+                student=request.user,
+                chapter=chapter,
+                submitted_image=uploaded_file,
+            )
+        except IntegrityError:
+            return Response(
+                {'detail': 'You have already submitted for this assignment.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        output = AssignmentSubmissionSerializer(submission, context={'request': request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='my-submission',
+        permission_classes=[IsAuthenticated, IsStudent],
+    )
+    def my_submission(self, request, pk=None):
+        chapter = self.get_object()
+        if not _student_can_access_chapter(request.user, chapter):
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        submission = AssignmentSubmission.objects.filter(
+            student=request.user,
+            chapter=chapter,
+        ).select_related('student').first()
+        if submission is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        output = AssignmentSubmissionSerializer(submission, context={'request': request})
+        return Response(output.data)
+
+    @action(detail=True, methods=['get'], url_path='submissions')
+    def submissions(self, request, pk=None):
+        chapter = self.get_object()
+        if not _instructor_owns_chapter(request.user, chapter):
+            raise PermissionDenied('You can only view submissions for your own chapters.')
+        if chapter.chapter_type != Chapter.ChapterType.ASSIGNMENT:
+            return Response(
+                {'detail': 'Submissions are only available for assignment chapters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        queryset = AssignmentSubmission.objects.filter(chapter=chapter).select_related('student')
+        output = AssignmentSubmissionSerializer(
+            queryset,
+            many=True,
+            context={'request': request},
+        )
+        return Response(output.data)
+
+
+class SubmissionFeedbackView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not request.user.is_instructor:
+            raise PermissionDenied('Only instructors can return assignment feedback.')
+
+        submission = get_object_or_404(
+            AssignmentSubmission.objects.select_related('chapter__course', 'student'),
+            pk=pk,
+            chapter__course__instructor=request.user,
+        )
+
+        serializer = SubmissionFeedbackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        if 'remarks' in data:
+            submission.instructor_remarks = data['remarks']
+        if 'score' in data:
+            submission.score = data['score']
+
+        annotated_image = request.FILES.get('annotated_image')
+        if annotated_image:
+            extension = os.path.splitext(annotated_image.name)[1].lower()
+            if extension not in ANNOTATED_IMAGE_EXTENSIONS:
+                raise ValidationError(
+                    {'annotated_image': 'Annotated image must be JPG or PNG.'}
+                )
+            submission.annotated_image = annotated_image
+
+        submission.status = AssignmentSubmission.Status.REVIEWED
+        submission.returned_at = timezone.now()
+        submission.save()
+
+        output = AssignmentSubmissionSerializer(submission, context={'request': request})
         return Response(output.data)
 
 

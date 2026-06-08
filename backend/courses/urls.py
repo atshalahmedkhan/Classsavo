@@ -14,7 +14,14 @@ from .notification_views import (
     NotificationMarkAllReadView,
     NotificationMarkReadView,
 )
-from .views import AIChatView, ChapterFileViewSet, ChapterViewSet, CourseViewSet, EnrollmentViewSet
+from .views import (
+    AIChatView,
+    ChapterFileViewSet,
+    ChapterViewSet,
+    CourseViewSet,
+    EnrollmentViewSet,
+    SubmissionFeedbackView,
+)
 
 router = DefaultRouter()
 router.register('courses', CourseViewSet, basename='course')
@@ -33,5 +40,6 @@ urlpatterns = [
     path('messages/<int:user_id>/', MessageThreadView.as_view(), name='message-thread'),
     path('messages/<int:user_id>/read/', MessageMarkReadView.as_view(), name='message-mark-read'),
     path('courses/ai-chat/', AIChatView.as_view(), name='course-ai-chat'),
+    path('submissions/<int:pk>/feedback/', SubmissionFeedbackView.as_view(), name='submission-feedback'),
     path('', include(router.urls)),
 ]

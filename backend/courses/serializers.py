@@ -4,7 +4,17 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from accounts.serializers import UserSerializer
-from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment, Message, Notification, generate_access_code
+from .models import (
+    AssignmentSubmission,
+    Chapter,
+    ChapterFile,
+    ChapterProgress,
+    Course,
+    Enrollment,
+    Message,
+    Notification,
+    generate_access_code,
+)
 from .thumbnail_utils import persist_thumbnail_bytes
 
 User = get_user_model()
@@ -232,6 +242,68 @@ class ChapterProgressSerializer(serializers.ModelSerializer):
 class ChapterProgressUpdateSerializer(serializers.Serializer):
     time_spent_seconds = serializers.IntegerField(min_value=0)
     is_read = serializers.BooleanField(required=False, default=False)
+
+
+SUBMISSION_ALLOWED_EXTENSIONS = {'.pdf', '.jpg', '.jpeg', '.png'}
+
+
+class AssignmentSubmissionSerializer(serializers.ModelSerializer):
+    student = UserSerializer(read_only=True)
+    submitted_image_url = serializers.SerializerMethodField()
+    annotated_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AssignmentSubmission
+        fields = (
+            'id',
+            'student',
+            'chapter',
+            'submitted_image_url',
+            'annotated_image_url',
+            'submitted_at',
+            'instructor_remarks',
+            'score',
+            'status',
+            'returned_at',
+        )
+        read_only_fields = fields
+
+    def get_submitted_image_url(self, obj):
+        if not obj.submitted_image:
+            return None
+        request = self.context.get('request')
+        url = obj.submitted_image.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_annotated_image_url(self, obj):
+        if not obj.annotated_image:
+            return None
+        request = self.context.get('request')
+        url = obj.annotated_image.url
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+
+class SubmissionCreateSerializer(serializers.Serializer):
+    image = serializers.FileField()
+
+    def validate_image(self, value):
+        import os
+
+        extension = os.path.splitext(value.name)[1].lower()
+        if extension not in SUBMISSION_ALLOWED_EXTENSIONS:
+            raise serializers.ValidationError(
+                'Unsupported file type. Allowed: PDF, JPG, and PNG.'
+            )
+        return value
+
+
+class SubmissionFeedbackSerializer(serializers.Serializer):
+    remarks = serializers.CharField(required=False, allow_blank=True, default='')
+    score = serializers.IntegerField(required=False, allow_null=True, min_value=0, max_value=100)
 
 
 class MessageSerializer(serializers.ModelSerializer):
