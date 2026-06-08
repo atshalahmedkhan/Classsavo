@@ -94,7 +94,10 @@ export function InstructorCoursePage() {
   const [courseDetailsSaving, setCourseDetailsSaving] = useState(false);
   const [courseDetailsError, setCourseDetailsError] = useState('');
   const [courseDetailsSuccess, setCourseDetailsSuccess] = useState('');
+  const [listNotice, setListNotice] = useState('');
+  const [highlightChapterId, setHighlightChapterId] = useState<number | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const listNoticeTimerRef = useRef<number | null>(null);
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -135,6 +138,39 @@ export function InstructorCoursePage() {
     return () => window.cancelAnimationFrame(id);
   }, [showForm, form.chapter_type, editingChapter?.id]);
 
+  useEffect(() => {
+    if (!highlightChapterId) return;
+    const id = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`chapter-${highlightChapterId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    const timer = window.setTimeout(() => setHighlightChapterId(null), 4000);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.clearTimeout(timer);
+    };
+  }, [highlightChapterId, chapters]);
+
+  useEffect(() => {
+    return () => {
+      if (listNoticeTimerRef.current !== null) {
+        window.clearTimeout(listNoticeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showListNotice = (message: string) => {
+    setListNotice(message);
+    if (listNoticeTimerRef.current !== null) {
+      window.clearTimeout(listNoticeTimerRef.current);
+    }
+    listNoticeTimerRef.current = window.setTimeout(() => {
+      setListNotice('');
+      listNoticeTimerRef.current = null;
+    }, 6000);
+  };
+
   const resetForm = () => {
     setForm({
       title: '',
@@ -146,6 +182,8 @@ export function InstructorCoursePage() {
     setAssignment({ instructions: '', dueDate: '' });
     setAssignmentError('');
     setAssignmentSuccess('');
+    setFormError('');
+    setFormSuccess('');
     setEditingChapter(null);
     setShowForm(false);
   };
@@ -191,8 +229,20 @@ export function InstructorCoursePage() {
         if (created.chapter_type === 'syllabus' || created.title.toLowerCase().includes('syllabus')) {
           setCourse((prev) => (prev ? { ...prev, has_syllabus: true } : prev));
         }
-        await load({ silent: true });
+        setChapters((prev) =>
+          [...prev.filter((ch) => ch.id !== created.id), created].sort((a, b) => a.order - b.order),
+        );
         resetForm();
+        setActiveTab('curriculum');
+        setHighlightChapterId(created.id);
+        showListNotice(
+          `"${created.title}" created. Click the pencil icon on that chapter to upload files or edit details.`,
+        );
+        try {
+          await load({ silent: true });
+        } catch {
+          // Chapter was saved; keep the form closed even if refresh fails.
+        }
       }
     } catch (err) {
       if (!editingChapter && isSyllabusRequiredError(err)) {
@@ -207,6 +257,8 @@ export function InstructorCoursePage() {
   };
 
   const handleEdit = (chapter: Chapter) => {
+    setActiveTab('curriculum');
+    setListNotice('');
     setEditingChapter(chapter);
     setForm({
       title: chapter.title,
@@ -403,6 +455,8 @@ export function InstructorCoursePage() {
 
   const handleOpenNewChapter = (chapterType: ChapterType = 'reading') => {
     setActiveTab('curriculum');
+    setListNotice('');
+    setHighlightChapterId(null);
     setEditingChapter(null);
     setForm({
       title: '',
@@ -652,6 +706,12 @@ export function InstructorCoursePage() {
               </Button>
             </div>
           </div>
+
+          {listNotice && !showForm && (
+            <div className="rounded-2xl border border-[#5a8a5a]/30 bg-[#5a8a5a]/10 px-5 py-4 text-sm text-[#2c1810]">
+              {listNotice}
+            </div>
+          )}
 
           {showForm && (
             <div ref={formRef} className="scroll-mt-6">
@@ -911,8 +971,10 @@ export function InstructorCoursePage() {
           {chapters.map((chapter, index) => (
             <Card
               key={chapter.id}
+              id={`chapter-${chapter.id}`}
               className={cn(
                 'border-[#e8ddd0] border-l-4 border-l-[#c2622a] shadow-sm transition-all duration-200 hover:border-[#c2622a]/60 hover:shadow-md',
+                highlightChapterId === chapter.id && 'border-[#5a8a5a] ring-2 ring-[#5a8a5a]/35',
                 draggedChapterId === chapter.id && 'opacity-50',
                 dragOverIndex === index &&
                   draggedChapterId !== chapter.id &&
