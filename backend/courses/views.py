@@ -17,7 +17,7 @@ from accounts.permissions import IsStudent
 
 from .file_conversion import convert_docx_to_pdf
 from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment
-from .plate_utils import extract_plain_text_from_plate
+from .ai_chat_utils import build_ai_tutor_system_prompt
 from .notification_services import check_assignment_due_notifications, create_chapter_published_notifications
 from .permissions import (
     ChapterPermission,
@@ -374,19 +374,16 @@ class AIChatView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        chapter = get_object_or_404(Chapter, pk=chapter_id)
+        chapter = get_object_or_404(
+            Chapter.objects.select_related('course__instructor').prefetch_related('files'),
+            pk=chapter_id,
+        )
         if not chapter.is_public:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if not Enrollment.objects.filter(student=request.user, course=chapter.course).exists():
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        chapter_text = extract_plain_text_from_plate(chapter.content)
-        system_prompt = (
-            f"You are a helpful tutor for a course chapter titled '{chapter.title}'. "
-            f"Here is the chapter content: {chapter_text}. "
-            "Answer the student's questions based on this material. "
-            "Be concise, friendly, and educational."
-        )
+        system_prompt = build_ai_tutor_system_prompt(chapter)
 
         groq_messages = [{'role': 'system', 'content': system_prompt}]
         if isinstance(history, list):

@@ -102,6 +102,23 @@ class TestCourseAccessCode:
 
 @pytest.mark.django_db
 class TestCourseThumbnail:
+    def test_course_create_with_thumbnail_persists_bytes(self, instructor_client, tiny_png):
+        response = instructor_client.post(
+            '/api/courses/',
+            {
+                'title': 'New Thumbnail Course',
+                'description': 'Has thumbnail on create',
+                'thumbnail': tiny_png,
+            },
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        course = Course.objects.get(id=response.data['id'])
+        assert course.thumbnail
+        assert course.thumbnail_data
+        assert response.data['thumbnail_url']
+        assert '/thumbnail/' in response.data['thumbnail_url']
+
     def test_course_thumbnail_upload_saves_correctly(self, instructor_client, course, tiny_png):
         response = instructor_client.patch(
             f'/api/courses/{course.id}/',
