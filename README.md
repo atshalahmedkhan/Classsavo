@@ -1,39 +1,10 @@
-# Classavo LMS
+---
 
-A full-stack Learning Management System with a Django Rest Framework backend and a React (Vite) frontend. Supports **Instructor** and **Student** roles with JWT authentication, course management, chapter editing via Plate.js, and role-based access control.
+## Local Setup
 
-## Features
+### Backend
 
-- JWT authentication (register, login, token refresh)
-- Instructors: create/edit/delete courses and chapters, toggle chapter visibility, view enrolled students
-- Students: browse courses, enroll, read public chapters in enrolled courses
-- Plate.js rich text editor for chapter content (stored as JSON)
-- Protected API routes and role-based frontend routing
-
-## Project Structure
-
-```
-Classavo/
-├── backend/          # Django + DRF API
-│   ├── accounts/     # Custom User model, auth endpoints
-│   ├── courses/      # Course, Chapter, Enrollment models & API
-│   └── lms_project/  # Django settings
-├── frontend/         # React + Vite + Tailwind + Plate.js
-│   └── src/
-│       ├── api/      # Axios client & API calls
-│       ├── components/
-│       ├── context/  # Auth context
-│       └── pages/    # Student & instructor views
-└── README.md
-```
-
-## Backend Setup
-
-### Prerequisites
-
-- Python 3.10+
-
-### Installation
+**Prerequisites:** Python 3.10+
 
 ```bash
 cd backend
@@ -41,85 +12,147 @@ python -m venv venv
 
 # Windows
 .\venv\Scripts\activate
-
 # macOS/Linux
 source venv/bin/activate
 
 pip install -r requirements.txt
-cp .env.example .env   # edit SECRET_KEY for production
+cp .env.example .env
+# Edit .env with your SECRET_KEY and database settings
+
 python manage.py migrate
-python manage.py createsuperuser   # optional, for Django admin
 python manage.py runserver
 ```
 
-The API runs at `http://localhost:8000`.
+API runs at `http://localhost:8000`
 
-### API Endpoints
+### Frontend
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register/` | Register (public) |
-| POST | `/api/auth/login/` | Login (public) |
-| POST | `/api/auth/refresh/` | Refresh JWT (public) |
-| GET | `/api/auth/me/` | Current user |
-| CRUD | `/api/courses/` | Courses (instructor CRUD, student list/retrieve) |
-| CRUD | `/api/chapters/` | Chapters (instructor CRUD, student read public) |
-| PATCH | `/api/chapters/{id}/toggle-visibility/` | Toggle chapter public/private |
-| GET/POST | `/api/enrollments/` | List enrollments / student enroll |
-| GET | `/api/courses/{id}/enrollments/` | Instructor views enrolled students |
-
-All routes except auth register/login/refresh require a valid JWT `Authorization: Bearer <token>` header.
-
-## Frontend Setup
-
-### Prerequisites
-
-- Node.js 18+
-
-### Installation
+**Prerequisites:** Node.js 18+
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env
+# Set VITE_API_BASE_URL=http://localhost:8000/api
+
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`.
+App runs at `http://localhost:5173`
 
-### Environment Variables
+---
 
-**Backend (`backend/.env`)**
+## Environment Variables
+
+### Backend (`backend/.env`)
 
 | Variable | Description |
-|----------|-------------|
+|---|---|
 | `SECRET_KEY` | Django secret key |
 | `DEBUG` | `True` for development |
-| `ALLOWED_HOSTS` | Comma-separated hosts |
-| `CORS_ALLOWED_ORIGINS` | Frontend origin(s) |
+| `ALLOWED_HOSTS` | Comma-separated allowed hosts |
+| `CORS_ALLOWED_ORIGINS` | Frontend origin |
+| `DATABASE_URL` | PostgreSQL URL (production) |
+| `GROQ_API_KEY` | Groq API key for AI tutor |
 
-**Frontend (`frontend/.env`)**
+### Frontend (`frontend/.env`)
 
 | Variable | Description |
-|----------|-------------|
-| `VITE_API_BASE_URL` | Backend API base URL (default: `http://localhost:8000/api`) |
+|---|---|
+| `VITE_API_BASE_URL` | Backend API base URL |
 
-## Usage
+---
 
-1. Start the backend (`python manage.py runserver`)
-2. Start the frontend (`npm run dev`)
-3. Register as an **Instructor** or **Student**
-4. **Instructor flow**: create a course → add chapters → toggle visibility to public
-5. **Student flow**: join a course → open enrolled course → read public chapters
+## API Reference
 
-## Tech Stack
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register/` | Register new user |
+| POST | `/api/auth/login/` | Login |
+| POST | `/api/auth/refresh/` | Refresh JWT token |
+| GET | `/api/auth/me/` | Current user profile |
+| CRUD | `/api/courses/` | Course management |
+| POST | `/api/courses/{id}/join/` | Student joins course |
+| CRUD | `/api/chapters/` | Chapter management |
+| PATCH | `/api/chapters/{id}/toggle-visibility/` | Toggle public/private |
+| POST | `/api/chapters/{id}/upload/` | Upload chapter file |
+| GET | `/api/chapter-files/{id}/preview/` | Authenticated file preview |
+| POST | `/api/chapters/{id}/submit/` | Student submits assignment |
+| POST | `/api/submissions/{id}/feedback/` | Instructor returns feedback |
+| POST | `/api/courses/ai-chat/` | AI tutor chat |
+| GET | `/api/notifications/` | User notifications |
+| GET | `/api/messages/` | Message threads |
 
-- **Backend**: Django 5, Django Rest Framework, SimpleJWT, django-cors-headers
-- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS, Axios, Plate.js, React Router
+All routes except auth endpoints require `Authorization: Bearer <token>`
 
-## Development Notes
+---
 
-- JWT tokens are stored in `localStorage` (access + refresh)
-- Chapter content is serialized Plate.js JSON stored in a `TextField`
-- Students only see chapters where `is_public=true` in courses they are enrolled in
-- Instructors can only manage their own courses and chapters
+## Running Tests
+
+### Backend (pytest)
+
+```bash
+cd backend
+.\venv\Scripts\activate
+pytest
+```
+
+### Frontend (Playwright)
+
+```bash
+cd frontend
+npx playwright install
+npx playwright test
+```
+
+---
+
+## Demo Flows
+
+### Instructor
+1. Register as Instructor
+2. Create a course — add title, description, thumbnail
+3. Share the auto-generated access code with students
+4. Add a Syllabus chapter first (required)
+5. Add Reading and Assignment chapters
+6. Upload PDFs to chapters as reading materials
+7. Set due dates and toggle visibility to public
+8. Review student submissions under the Submissions tab
+
+### Student
+1. Register as Student
+2. Go to Discover — enter access code to join a course
+3. Open the course — start with the Syllabus
+4. Read chapters — progress is tracked automatically
+5. Use the AI Tutor (bottom right) to ask questions about the content
+6. Submit assignment work as PDF or image
+7. View instructor feedback and score after review
+
+---
+
+## Design
+
+Lumio uses a custom Ghibli-inspired warm design system:
+
+| Token | Value | Usage |
+|---|---|---|
+| Primary | `#c2622a` | Buttons, accents |
+| Background | `#faf6f1` | Page background |
+| Surface | `#ffffff` | Cards |
+| Border | `#e8ddd0` | Card borders |
+| Text | `#2c1810` | Headings |
+
+---
+
+## Known Limitations
+
+- Render free tier has ~30-60 second cold start after idle
+- Submission files stored on Render disk (may be lost on redeploy)
+- No automated email notifications yet
+
+---
+
+## Built By
+
+Atshal Ahmed Khan — built as part of the Classavo 
+Software Developer Intern (Summer '26) technical assignment.
