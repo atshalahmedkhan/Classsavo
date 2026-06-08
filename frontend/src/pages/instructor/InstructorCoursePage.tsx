@@ -56,6 +56,11 @@ export function InstructorCoursePage() {
   const [reordering, setReordering] = useState(false);
   const [draggedChapterId, setDraggedChapterId] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [editingCourseDetails, setEditingCourseDetails] = useState(false);
+  const [courseDetailsForm, setCourseDetailsForm] = useState({ title: '', description: '' });
+  const [courseDetailsSaving, setCourseDetailsSaving] = useState(false);
+  const [courseDetailsError, setCourseDetailsError] = useState('');
+  const [courseDetailsSuccess, setCourseDetailsSuccess] = useState('');
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -211,6 +216,44 @@ export function InstructorCoursePage() {
     await navigator.clipboard.writeText(course.access_code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleStartEditCourseDetails = () => {
+    if (!course) return;
+    setCourseDetailsForm({ title: course.title, description: course.description });
+    setCourseDetailsError('');
+    setCourseDetailsSuccess('');
+    setEditingCourseDetails(true);
+  };
+
+  const handleCancelCourseDetails = () => {
+    setEditingCourseDetails(false);
+    setCourseDetailsError('');
+  };
+
+  const handleSaveCourseDetails = async () => {
+    if (!courseId) return;
+    const title = courseDetailsForm.title.trim();
+    const description = courseDetailsForm.description.trim();
+    if (!title) {
+      setCourseDetailsError('Course title is required.');
+      return;
+    }
+
+    setCourseDetailsSaving(true);
+    setCourseDetailsError('');
+    setCourseDetailsSuccess('');
+    try {
+      const updated = await coursesApi.update(Number(courseId), { title, description });
+      setCourse(updated);
+      setEditingCourseDetails(false);
+      setCourseDetailsSuccess('Course details updated.');
+      window.setTimeout(() => setCourseDetailsSuccess(''), 3000);
+    } catch (err) {
+      setCourseDetailsError(getApiErrorMessage(err, 'Could not update course details.'));
+    } finally {
+      setCourseDetailsSaving(false);
+    }
   };
 
   const handleFileUploaded = (file: ChapterFile) => {
@@ -376,8 +419,76 @@ export function InstructorCoursePage() {
             <div className="relative flex flex-wrap items-start justify-between gap-6">
               <div className="max-w-2xl">
                 <Badge className="bg-white/20 text-white">CURRENT COURSE</Badge>
-                <h1 className="mt-3 font-serif text-2xl font-bold md:text-3xl">{course.title}</h1>
-                <p className="mt-2 text-white/85">{course.description}</p>
+                {editingCourseDetails ? (
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-white/85">Course title</label>
+                      <Input
+                        value={courseDetailsForm.title}
+                        onChange={(e) =>
+                          setCourseDetailsForm((prev) => ({ ...prev, title: e.target.value }))
+                        }
+                        className="border-white/30 bg-white/95 text-[#2c1810]"
+                        placeholder="Course title"
+                        disabled={courseDetailsSaving}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-white/85">Description</label>
+                      <Textarea
+                        value={courseDetailsForm.description}
+                        onChange={(e) =>
+                          setCourseDetailsForm((prev) => ({ ...prev, description: e.target.value }))
+                        }
+                        className="min-h-[100px] border-white/30 bg-white/95 text-[#2c1810]"
+                        placeholder="Course description"
+                        disabled={courseDetailsSaving}
+                      />
+                    </div>
+                    {courseDetailsError && (
+                      <p className="text-sm text-red-200">{courseDetailsError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="ghibli-gradient-primary hover:brightness-95"
+                        onClick={handleSaveCourseDetails}
+                        disabled={courseDetailsSaving}
+                      >
+                        {courseDetailsSaving ? 'Saving...' : 'Save changes'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-white/40 bg-white/10 text-white hover:bg-white/20"
+                        onClick={handleCancelCourseDetails}
+                        disabled={courseDetailsSaving}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-3 flex items-start gap-2">
+                      <h1 className="font-serif text-2xl font-bold md:text-3xl">{course.title}</h1>
+                      <button
+                        type="button"
+                        onClick={handleStartEditCourseDetails}
+                        className="mt-1 rounded-lg p-1.5 text-white/85 hover:bg-white/15 hover:text-white"
+                        aria-label="Edit course title and description"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <p className="mt-2 text-white/85">{course.description}</p>
+                    {courseDetailsSuccess && (
+                      <p className="mt-2 text-sm text-white/90">{courseDetailsSuccess}</p>
+                    )}
+                  </>
+                )}
                 {course.access_code && (
                   <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#c2622a]/40 bg-[#faf6f1]/10 px-4 py-2">
                     <span className="text-xs text-white/85">Access code:</span>

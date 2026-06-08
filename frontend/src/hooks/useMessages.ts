@@ -7,8 +7,8 @@ export function useMessages() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       const [convs, count] = await Promise.all([
         messagesApi.listConversations(),
@@ -17,16 +17,18 @@ export function useMessages() {
       setConversations(convs);
       setUnreadCount(count);
     } catch {
-      setConversations([]);
-      setUnreadCount(0);
+      if (!options?.silent) {
+        setConversations([]);
+        setUnreadCount(0);
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     refresh();
-    const interval = window.setInterval(refresh, 30000);
+    const interval = window.setInterval(() => refresh({ silent: true }), 5000);
     return () => window.clearInterval(interval);
   }, [refresh]);
 

@@ -61,12 +61,6 @@ export function StudentSidebar() {
 
       <div className="space-y-1 border-t border-[#e8ddd0] px-3 py-4">
         <Link
-          to="/student/settings"
-          className="flex w-full items-center justify-center rounded-full ghibli-gradient-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95"
-        >
-          Upgrade Plan
-        </Link>
-        <Link
           to="/student/help"
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-[#6b5c52] hover:bg-[#faf6f1] hover:text-[#2c1810]"
         >

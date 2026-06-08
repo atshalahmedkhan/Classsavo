@@ -26,17 +26,31 @@ export function ChatPanel({ otherUser, courseId, onSent }: ChatPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    let cancelled = false;
+
+    const loadThread = async (showLoading = false) => {
+      if (showLoading) setLoading(true);
       try {
         const thread = await messagesApi.getThread(otherUser.id);
+        if (cancelled) return;
         setMessages(thread);
         await messagesApi.markRead(otherUser.id);
       } finally {
-        setLoading(false);
+        if (!cancelled && showLoading) setLoading(false);
       }
     };
-    load();
+
+    loadThread(true);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadThread(false);
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, [otherUser.id]);
 
   useEffect(() => {

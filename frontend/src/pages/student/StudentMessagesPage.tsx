@@ -103,7 +103,7 @@ export function StudentMessagesPage() {
               <ChatPanel
                 otherUser={selectedUser}
                 courseId={courseId}
-                onSent={refresh}
+                onSent={() => refresh({ silent: true })}
               />
             ) : (
               <div className="flex h-full min-h-[400px] flex-col items-center justify-center border border-[#e8ddd0] bg-[#faf6f1]/30 p-8 text-center">

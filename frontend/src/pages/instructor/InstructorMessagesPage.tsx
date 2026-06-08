@@ -136,7 +136,7 @@ export function InstructorMessagesPage() {
               <ChatPanel
                 otherUser={selectedUser}
                 courseId={searchParams.get('course') ? Number(searchParams.get('course')) : undefined}
-                onSent={refresh}
+                onSent={() => refresh({ silent: true })}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center">

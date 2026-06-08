@@ -103,7 +103,8 @@ export function StudentDiscoverPage() {
                     </div>
                   </div>
                   <div className="p-6 lg:col-span-2">
-                    <p className="text-[#6b5c52]">{course.description}</p>
+                    <CardTitle className="text-xl">{course.title}</CardTitle>
+                    <p className="mt-2 text-[#6b5c52]">{course.description}</p>
                     <div className="mt-4 flex flex-wrap gap-4 text-sm text-[#6b5c52]">
                       <span className="flex items-center gap-1">
                         <BookOpen className="h-4 w-4" /> {course.chapter_count} chapters
