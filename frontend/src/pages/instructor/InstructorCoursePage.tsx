@@ -179,27 +179,11 @@ export function InstructorCoursePage() {
           is_public: form.is_public,
           chapter_type: form.chapter_type,
         });
-        await load({ silent: true });
-        setEditingChapter(created);
-        setForm({
-          title: created.title,
-          content: created.content,
-          order: created.order,
-          is_public: created.is_public,
-          chapter_type: created.chapter_type ?? 'reading',
-        });
-        setAssignment({ instructions: '', dueDate: '' });
-        setShowForm(true);
-        setFormSuccess(
-          created.chapter_type === 'assignment'
-            ? 'Chapter created. You can now add assignment details below.'
-            : created.chapter_type === 'syllabus'
-              ? 'Syllabus created. Publish it when you are ready for students to see it.'
-              : 'Chapter created. You can now upload reading materials below.',
-        );
         if (created.chapter_type === 'syllabus' || created.title.toLowerCase().includes('syllabus')) {
           setCourse((prev) => (prev ? { ...prev, has_syllabus: true } : prev));
         }
+        await load({ silent: true });
+        resetForm();
       }
     } catch (err) {
       if (!editingChapter && isSyllabusRequiredError(err)) {
@@ -409,6 +393,7 @@ export function InstructorCoursePage() {
   };
 
   const handleOpenNewChapter = (chapterType: ChapterType = 'reading') => {
+    setActiveTab('curriculum');
     setEditingChapter(null);
     setForm({
       title: '',
