@@ -78,6 +78,10 @@ class Course(models.Model):
 
 class Chapter(models.Model):
 
+    class ChapterType(models.TextChoices):
+        READING = 'reading', 'Reading'
+        ASSIGNMENT = 'assignment', 'Assignment'
+
     title = models.CharField(max_length=255)
 
     content = models.TextField(help_text='Plate.js JSON content')
@@ -90,6 +94,12 @@ class Chapter(models.Model):
 
         related_name='chapters',
 
+    )
+
+    chapter_type = models.CharField(
+        max_length=20,
+        choices=ChapterType.choices,
+        default=ChapterType.READING,
     )
 
     is_public = models.BooleanField(default=False)

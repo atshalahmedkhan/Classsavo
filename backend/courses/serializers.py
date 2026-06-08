@@ -120,6 +120,7 @@ class ChapterSerializer(serializers.ModelSerializer):
             'title',
             'content',
             'course',
+            'chapter_type',
             'is_public',
             'order',
             'assignment_instructions',
