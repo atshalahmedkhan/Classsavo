@@ -53,11 +53,13 @@ class CourseSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'instructor', 'created_at')
 
     def get_thumbnail_url(self, obj):
-        if obj.thumbnail_data:
-            return f'/api/courses/{obj.id}/thumbnail/'
-        if not obj.thumbnail:
+        if not (obj.thumbnail_data or obj.thumbnail):
             return None
-        return obj.thumbnail.url
+        path = f'/api/courses/{obj.id}/thumbnail/'
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(path)
+        return path
 
     def get_access_code(self, obj):
         user = self.context['request'].user
@@ -103,19 +105,23 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         access_code = validated_data.pop('access_code', '') or ''
+        thumbnail_upload = validated_data.get('thumbnail')
         if not access_code:
             access_code = generate_access_code()
             while Course.objects.filter(access_code=access_code).exists():
                 access_code = generate_access_code()
         validated_data['access_code'] = access_code
         course = super().create(validated_data)
-        if course.thumbnail:
-            persist_thumbnail_bytes(course)
+        if thumbnail_upload is not None or course.thumbnail:
+            persist_thumbnail_bytes(course, uploaded_file=thumbnail_upload)
         return course
 
     def update(self, instance, validated_data):
+        thumbnail_upload = validated_data.get('thumbnail')
         course = super().update(instance, validated_data)
-        if 'thumbnail' in validated_data and course.thumbnail:
+        if thumbnail_upload is not None:
+            persist_thumbnail_bytes(course, uploaded_file=thumbnail_upload)
+        elif 'thumbnail' in validated_data and course.thumbnail:
             persist_thumbnail_bytes(course)
         return course
 

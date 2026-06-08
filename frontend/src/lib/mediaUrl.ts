@@ -1,16 +1,29 @@
-/** Use same-origin paths so Vercel can proxy API/media instead of hitting Render directly. */
+function getBackendOrigin(): string {
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  if (!apiBase || apiBase.startsWith('/')) {
+    return '';
+  }
+  try {
+    return new URL(apiBase).origin;
+  } catch {
+    return '';
+  }
+}
+
+/** Resolve course/media URLs for dev proxy and production (Render) backends. */
 export function normalizeMediaUrl(url: string): string {
-  if (url.startsWith('/media/') || url.startsWith('/api/')) {
+  if (!url) return url;
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
 
-  try {
-    const parsed = new URL(url);
-    if (parsed.pathname.startsWith('/media/') || parsed.pathname.startsWith('/api/')) {
-      return parsed.pathname;
+  if (url.startsWith('/media/') || url.startsWith('/api/')) {
+    const backendOrigin = getBackendOrigin();
+    if (backendOrigin) {
+      return `${backendOrigin}${url}`;
     }
-  } catch {
-    // Keep relative or malformed URLs as-is.
+    return url;
   }
 
   return url;
