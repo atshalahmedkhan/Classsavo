@@ -13,7 +13,18 @@ import { Card, CardDescription, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
-import { Copy, Check, Clock, GripVertical, MessageCircle, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  Clock,
+  GripVertical,
+  MessageCircle,
+  Minus,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { normalizeMediaUrl } from '@/lib/mediaUrl';
@@ -95,7 +106,10 @@ export function InstructorCoursePage() {
   const [courseDetailsError, setCourseDetailsError] = useState('');
   const [courseDetailsSuccess, setCourseDetailsSuccess] = useState('');
   const [highlightChapterId, setHighlightChapterId] = useState<number | null>(null);
+  const [scrollToMaterials, setScrollToMaterials] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
+  const chapterFormRef = useRef<HTMLFormElement>(null);
+  const materialsRef = useRef<HTMLDivElement>(null);
 
   const load = async (options?: { silent?: boolean }) => {
     if (!courseId) return;
@@ -131,10 +145,15 @@ export function InstructorCoursePage() {
   useEffect(() => {
     if (!showForm) return;
     const id = window.requestAnimationFrame(() => {
-      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (scrollToMaterials && materialsRef.current) {
+        materialsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setScrollToMaterials(false);
+      } else {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
     return () => window.cancelAnimationFrame(id);
-  }, [showForm, form.chapter_type, editingChapter?.id]);
+  }, [showForm, scrollToMaterials, editingChapter?.id]);
 
   useEffect(() => {
     if (!highlightChapterId) return;
@@ -244,6 +263,7 @@ export function InstructorCoursePage() {
               ? 'Syllabus created. Upload your syllabus document below.'
               : 'Chapter created. Upload your reading materials below.',
         );
+        setScrollToMaterials(true);
       }
     } catch (err) {
       if (!editingChapter && isSyllabusRequiredError(err)) {
@@ -257,8 +277,12 @@ export function InstructorCoursePage() {
     }
   };
 
-  const handleEdit = (chapter: Chapter) => {
+  const openChapterEditor = (
+    chapter: Chapter,
+    options?: { focusMaterials?: boolean; successMessage?: string },
+  ) => {
     setActiveTab('curriculum');
+    setHighlightChapterId(null);
     setEditingChapter(chapter);
     setForm({
       title: chapter.title,
@@ -273,7 +297,29 @@ export function InstructorCoursePage() {
     });
     setAssignmentError('');
     setAssignmentSuccess('');
+    setFormError('');
+    setFormSuccess(options?.successMessage ?? '');
     setShowForm(true);
+    if (options?.focusMaterials) {
+      setScrollToMaterials(true);
+    }
+  };
+
+  const handleEdit = (chapter: Chapter) => {
+    openChapterEditor(chapter);
+  };
+
+  const handleAddMaterials = (chapter: Chapter) => {
+    const chapterType = chapter.chapter_type ?? 'reading';
+    openChapterEditor(chapter, {
+      focusMaterials: true,
+      successMessage:
+        chapterType === 'assignment'
+          ? 'Upload assignment materials below.'
+          : chapterType === 'syllabus'
+            ? 'Upload your syllabus document below.'
+            : 'Upload your reading materials below.',
+    });
   };
 
   const handleDelete = async (id: number) => {
@@ -710,7 +756,7 @@ export function InstructorCoursePage() {
             <div ref={formRef} className="scroll-mt-6">
               <Card className="mb-6 border-[#c2622a]/30 shadow-md ring-1 ring-[#c2622a]/10">
                 <CardTitle>{getChapterFormTitle(!!editingChapter, form.chapter_type)}</CardTitle>
-                <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+                <form ref={chapterFormRef} onSubmit={handleSubmit} className="mt-4 space-y-4">
                   <div>
                     <div className="flex flex-wrap gap-3">
                       <button
@@ -789,7 +835,7 @@ export function InstructorCoursePage() {
                     />
                   </div>
 
-                  <div className="border-t border-[#e8ddd0] pt-6">
+                  <div ref={materialsRef} className="border-t border-[#e8ddd0] pt-6 scroll-mt-24">
                     <CardTitle className="text-base">
                       {form.chapter_type === 'assignment'
                         ? 'Assignment & Materials'
@@ -849,11 +895,22 @@ export function InstructorCoursePage() {
                         )}
                       </div>
                     ) : (
-                      <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                        Save the chapter first (click{' '}
-                        <strong>{getChapterSubmitLabel(false, false, form.chapter_type)}</strong>), then you can
-                        upload reading materials
-                        {form.chapter_type === 'assignment' ? ' and add assignment details' : ''} here.
+                      <div className="mt-4 rounded-xl border border-dashed border-[#c2622a]/30 bg-[#faf6f1] px-4 py-4 text-sm text-[#6b5c52]">
+                        <p>
+                          Save this chapter first, then you can upload your PDF or document here.
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="mt-3 ghibli-gradient-primary hover:brightness-95"
+                          disabled={saving || !form.title.trim()}
+                          onClick={() => {
+                            chapterFormRef.current?.requestSubmit();
+                          }}
+                        >
+                          <Upload className="mr-1 h-4 w-4" />
+                          Save & upload materials
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1030,6 +1087,16 @@ export function InstructorCoursePage() {
                     </button>
                   </div>
                 <div className="flex items-center gap-2">
+                  {(chapter.files?.length ?? 0) === 0 && (
+                    <Button
+                      size="sm"
+                      className="ghibli-gradient-primary hover:brightness-95"
+                      onClick={() => handleAddMaterials(chapter)}
+                    >
+                      <Upload className="mr-1 h-3.5 w-3.5" />
+                      Add materials
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => handleEdit(chapter)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
