@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Calendar, CheckCircle2, ClipboardList } from 'lucide-react';
 import { chaptersApi } from '@/api/chapters';
+import { AIChatPanel } from '@/components/AIChatPanel';
 import { CourseMaterialPanel } from '@/components/CourseMaterialPanel';
 import { StudentHeader } from '@/components/student/StudentHeader';
 import { PlateViewer } from '@/components/PlateViewer';
@@ -227,6 +228,7 @@ export function ChapterReaderPage() {
           </div>
         </div>
       </main>
+      {chapter && <AIChatPanel chapterId={chapter.id} />}
     </>
   );
 }

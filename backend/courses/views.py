@@ -1,18 +1,23 @@
 import mimetypes
 import os
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+from groq import Groq
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import IsStudent
 
 from .file_conversion import convert_docx_to_pdf
 from .models import Chapter, ChapterFile, ChapterProgress, Course, Enrollment
+from .plate_utils import extract_plain_text_from_plate
 from .notification_services import check_assignment_due_notifications, create_chapter_published_notifications
 from .permissions import (
     ChapterPermission,
@@ -321,3 +326,66 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(course_id=course_id)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+
+MAX_AI_CHAT_HISTORY = 20
+
+
+class AIChatView(APIView):
+    permission_classes = [IsAuthenticated, IsStudent]
+
+    def post(self, request):
+        message = (request.data.get('message') or '').strip()
+        chapter_id = request.data.get('chapter_id')
+        history = request.data.get('history') or []
+
+        if not message:
+            return Response({'detail': 'Message is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if chapter_id is None:
+            return Response({'detail': 'chapter_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not settings.GROQ_API_KEY:
+            return Response(
+                {'detail': 'AI tutor is not configured.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        chapter = get_object_or_404(Chapter, pk=chapter_id)
+        if not chapter.is_public:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not Enrollment.objects.filter(student=request.user, course=chapter.course).exists():
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        chapter_text = extract_plain_text_from_plate(chapter.content)
+        system_prompt = (
+            f"You are a helpful tutor for a course chapter titled '{chapter.title}'. "
+            f"Here is the chapter content: {chapter_text}. "
+            "Answer the student's questions based on this material. "
+            "Be concise, friendly, and educational."
+        )
+
+        groq_messages = [{'role': 'system', 'content': system_prompt}]
+        if isinstance(history, list):
+            for item in history[-MAX_AI_CHAT_HISTORY:]:
+                if not isinstance(item, dict):
+                    continue
+                role = item.get('role')
+                content = (item.get('content') or '').strip()
+                if role in ('user', 'assistant') and content:
+                    groq_messages.append({'role': role, 'content': content})
+        groq_messages.append({'role': 'user', 'content': message})
+
+        try:
+            client = Groq(api_key=settings.GROQ_API_KEY)
+            completion = client.chat.completions.create(
+                model='llama-3.3-70b-versatile',
+                messages=groq_messages,
+            )
+            response_text = completion.choices[0].message.content or ''
+        except Exception:
+            return Response(
+                {'detail': 'Unable to get a response from the AI tutor. Please try again.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        return Response({'response': response_text})

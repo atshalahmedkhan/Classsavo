@@ -158,3 +158,5 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 ]
 CSRF_TRUSTED_ORIGINS = [_normalize_origin(origin) for origin in CSRF_TRUSTED_ORIGINS]
 CORS_ALLOW_CREDENTIALS = True
+
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
