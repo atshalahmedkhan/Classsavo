@@ -1,6 +1,9 @@
 import { insertCallout } from '@platejs/callout';
 import { insertEmptyCodeBlock } from '@platejs/code-block';
 import { insertDate } from '@platejs/date';
+import { FootnoteReferencePlugin } from '@platejs/footnote/react';
+import { insertEquation, insertInlineEquation } from '@platejs/math';
+import { insertToc } from '@platejs/toc';
 import { TablePlugin } from '@platejs/table/react';
 import type { PlateEditor } from 'platejs/react';
 import { KEYS, PathApi, type TElement } from 'platejs';
@@ -27,6 +30,8 @@ const insertBlockMap: Record<string, (editor: PlateEditor) => void> = {
   [KEYS.toggle]: (editor) => insertToggle(editor),
   [KEYS.table]: (editor) => insertTableBlock(editor),
   [KEYS.callout]: (editor) => insertCallout(editor, { select: true }),
+  [KEYS.toc]: (editor) => insertToc(editor, { select: true, nextBlock: true }),
+  [KEYS.equation]: (editor) => insertEquation(editor, { select: true }),
 };
 
 function insertBlockquote(editor: PlateEditor) {
@@ -101,6 +106,18 @@ export function insertBlock(
 
 export function insertInlineDate(editor: PlateEditor) {
   insertDate(editor, { select: true });
+  editor.tf.focus();
+}
+
+export function insertInlineEquationBlock(editor: PlateEditor) {
+  insertInlineEquation(editor, '', { select: true });
+  editor.tf.focus();
+}
+
+export function insertFootnote(editor: PlateEditor) {
+  editor.getTransforms(FootnoteReferencePlugin).insert.footnote({
+    focusDefinition: false,
+  });
   editor.tf.focus();
 }
 

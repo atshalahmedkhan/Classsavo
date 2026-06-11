@@ -19,6 +19,11 @@ import {
   CodeSyntaxPlugin,
 } from '@platejs/code-block/react';
 import { DatePlugin } from '@platejs/date/react';
+import {
+  FootnoteDefinitionPlugin,
+  FootnoteReferencePlugin,
+} from '@platejs/footnote/react';
+import { EquationPlugin, InlineEquationPlugin } from '@platejs/math/react';
 import { ListPlugin } from '@platejs/list/react';
 import { SlashInputPlugin, SlashPlugin } from '@platejs/slash-command/react';
 import {
@@ -27,6 +32,7 @@ import {
   TablePlugin,
   TableRowPlugin,
 } from '@platejs/table/react';
+import { TocPlugin } from '@platejs/toc/react';
 import { TogglePlugin } from '@platejs/toggle/react';
 import { createLowlight, common } from 'lowlight';
 import { ParagraphPlugin } from 'platejs/react';
@@ -35,12 +41,21 @@ import { CalloutElement } from './nodes/callout-node';
 import { CodeBlockElement, CodeLineElement } from './nodes/code-block-node';
 import { CodeSyntaxLeaf } from './nodes/code-syntax-leaf';
 import { DateElement } from './nodes/date-node';
+import {
+  EquationElement,
+  InlineEquationElement,
+} from './nodes/equation-node';
+import {
+  FootnoteDefinitionElement,
+  FootnoteReferenceElement,
+} from './nodes/footnote-node';
 import { ParagraphElement } from './nodes/todo-list-node';
 import {
   TableCellElement,
   TableElement,
   TableRowElement,
 } from './nodes/table-node';
+import { TocElement } from './nodes/toc-node';
 import { ToggleElement } from './nodes/toggle-node';
 import { SlashInputElement } from './slash-node';
 
@@ -69,17 +84,18 @@ export function createEditorPlugins(openAi: () => void) {
     TableCellPlugin.withComponent(TableCellElement),
     TableCellHeaderPlugin.withComponent(TableCellElement),
     CalloutPlugin.withComponent(CalloutElement),
-    BoldPlugin.configure({
-      node: {
-        leafProps: { className: 'font-bold' },
-      },
-    }),
-    CodePlugin,
+    TocPlugin.withComponent(TocElement),
+    EquationPlugin.withComponent(EquationElement),
+    InlineEquationPlugin.withComponent(InlineEquationElement),
+    FootnoteDefinitionPlugin.withComponent(FootnoteDefinitionElement),
+    FootnoteReferencePlugin.withComponent(FootnoteReferenceElement),
+    BoldPlugin,
     ItalicPlugin,
+    UnderlinePlugin,
     StrikethroughPlugin,
     SubscriptPlugin,
     SuperscriptPlugin,
-    UnderlinePlugin,
+    CodePlugin,
     SlashPlugin,
     SlashInputPlugin.withComponent((props) => (
       <SlashInputElement {...props} openAi={openAi} />

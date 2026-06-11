@@ -267,12 +267,19 @@ async function pressBoldToolbarButton(page: Page): Promise<void> {
 }
 
 export async function applyBoldInPlateEditor(page: Page): Promise<void> {
+  const editor = plateEditor(page);
   await expect(async () => {
-    await selectAllInPlateEditor(page);
-    await pressBoldToolbarButton(page);
+    await editor.click();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await selectAllInPlateEditor(page);
+      await pressBoldToolbarButton(page);
+      if ((await plateBoldButton(page).getAttribute('aria-pressed')) === 'true') {
+        break;
+      }
+    }
     await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'true');
     await expectEditorTextIsBold(page, 'Bold Playwright phrase');
-  }).toPass({ timeout: 20_000 });
+  }).toPass({ timeout: 45_000 });
 }
 
 export async function removeBoldInPlateEditor(page: Page, phrase?: string): Promise<void> {

@@ -23,7 +23,7 @@ import {
   TableOfContents,
   ToggleLeft,
 } from 'lucide-react';
-import { insertBlock, insertInlineDate, insertInlinePlaceholder } from './editor-transforms';
+import { insertBlock, insertFootnote, insertInlineDate, insertInlineEquationBlock, insertInlinePlaceholder } from './editor-transforms';
 import {
   InlineCombobox,
   InlineComboboxContent,
@@ -84,15 +84,24 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
     {
       group: 'Advanced',
       items: [
-        { icon: <TableOfContents className="h-4 w-4" />, value: KEYS.toc, label: 'Table of contents', keywords: ['toc'] },
-        { icon: <Columns3 className="h-4 w-4" />, value: 'columns', label: '3 columns', keywords: ['columns'] },
-        { icon: <SquareRadical className="h-4 w-4" />, value: KEYS.equation, label: 'Equation', keywords: ['math'] },
-        { icon: <Footprints className="h-4 w-4" />, value: KEYS.excalidraw, label: 'Excalidraw', keywords: ['draw'] },
-        { icon: <Code2 className="h-4 w-4" />, value: KEYS.codeDrawing, label: 'Code Drawing', keywords: ['diagram'] },
-      ].map((item) => ({
-        ...item,
-        onSelect: (editor) => insertInlinePlaceholder(editor, item.label),
-      })),
+        {
+          icon: <TableOfContents className="h-4 w-4" />,
+          value: KEYS.toc,
+          label: 'Table of contents',
+          keywords: ['toc'],
+          onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.toc, { upsert: true }),
+        },
+        { icon: <Columns3 className="h-4 w-4" />, value: 'columns', label: '3 columns', keywords: ['columns'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, '3 columns') },
+        {
+          icon: <SquareRadical className="h-4 w-4" />,
+          value: KEYS.equation,
+          label: 'Equation',
+          keywords: ['math'],
+          onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.equation, { upsert: true }),
+        },
+        { icon: <Footprints className="h-4 w-4" />, value: KEYS.excalidraw, label: 'Excalidraw', keywords: ['draw'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, 'Excalidraw') },
+        { icon: <Code2 className="h-4 w-4" />, value: KEYS.codeDrawing, label: 'Code Drawing', keywords: ['diagram'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, 'Code Drawing') },
+      ],
     },
     {
       group: 'Inline',
@@ -106,17 +115,17 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
         },
         {
           icon: <Sigma className="h-4 w-4" />,
-          value: 'footnote',
+          value: KEYS.footnoteReference,
           label: 'Footnote',
           keywords: ['note'],
-          onSelect: (editor) => insertInlinePlaceholder(editor, 'Footnote'),
+          onSelect: (editor) => insertFootnote(editor),
         },
         {
           icon: <SquareRadical className="h-4 w-4" />,
           value: KEYS.inlineEquation,
           label: 'Inline Equation',
           keywords: ['math'],
-          onSelect: (editor) => insertInlinePlaceholder(editor, 'Inline Equation'),
+          onSelect: (editor) => insertInlineEquationBlock(editor),
         },
       ],
     },

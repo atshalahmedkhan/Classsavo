@@ -202,4 +202,55 @@ test.describe('Plate.js Slash Command', () => {
     await expect(editor.locator('blockquote')).toBeVisible();
     await expect(page.getByTestId('slash-command-menu')).not.toBeVisible();
   });
+
+  test('instructor can insert table of contents from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashtoc');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash TOC Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/toc');
+    await page.getByTestId('slash-item-toc').click();
+
+    await expect(editor.getByTestId('toc-block')).toBeVisible();
+    await expect(editor.getByText('Create a heading to display the table of contents.')).toBeVisible();
+  });
+
+  test('instructor can insert inline equation from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashinlineeq');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash Inline Eq Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/inline');
+    await page.getByTestId('slash-item-inline_equation').click();
+
+    await expect(editor.getByTestId('inline-equation')).toBeVisible();
+    await expect(editor.getByTestId('inline-equation-editor')).toBeVisible();
+  });
+
+  test('instructor can insert footnote from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashfootnote');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash Footnote Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/footnote');
+    await page.getByTestId('slash-item-footnoteReference').click();
+
+    await expect(editor.getByTestId('footnote-reference')).toBeVisible();
+    await expect(editor.getByTestId('footnote-definition')).toBeVisible();
+  });
 });
