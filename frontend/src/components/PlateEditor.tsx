@@ -193,7 +193,6 @@ function PlateToolbar({ onValueChange }: { onValueChange: (value: Value) => void
           aria-label="Font family"
           data-testid="plate-font-family"
           value={currentFont}
-          onMouseDown={(event) => event.preventDefault()}
           onChange={(event) => handleFontChange(event.target.value)}
           className="rounded border border-[#e8ddd0] bg-white px-2 py-1 text-sm text-[#2c1810] outline-none focus:ring-1 focus:ring-[#e8ddd0]"
         >
