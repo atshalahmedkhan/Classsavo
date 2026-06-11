@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { normalizeMediaUrl } from '@/lib/mediaUrl';
 import { formatDuration } from '@/lib/readingTime';
-import type { Value } from '@udecode/plate';
+import type { Value } from 'platejs';
 import type { Chapter, ChapterType, Course, ChapterFile, CourseProgressReport, User } from '@/types';
 
 const emptyContent: Value = [{ type: 'p', children: [{ text: '' }] }];
@@ -1336,7 +1336,12 @@ export function InstructorCoursePage() {
                       Add materials
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(chapter)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-label={`Edit ${chapter.title}`}
+                    onClick={() => handleEdit(chapter)}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => handleDelete(chapter.id)}>

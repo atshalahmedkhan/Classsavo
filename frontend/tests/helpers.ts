@@ -1,4 +1,4 @@
-import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 export const API_BASE = 'http://127.0.0.1:8000/api';
 
@@ -78,6 +78,20 @@ export async function loginViaUi(
   await page.waitForURL(expectedPath);
 }
 
+export async function switchUserViaUi(
+  page: Page,
+  username: string,
+  password: string,
+  expectedPath: string,
+): Promise<void> {
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await loginViaUi(page, username, password, expectedPath);
+}
+
 export async function registerStudentViaUi(
   page: Page,
   username: string,
@@ -126,7 +140,13 @@ export async function seedChapter(
   request: APIRequestContext,
   accessToken: string,
   courseId: number,
-  options: { title: string; isPublic: boolean; content?: unknown[] },
+  options: {
+    title: string;
+    isPublic: boolean;
+    content?: unknown[];
+    chapter_type?: 'syllabus' | 'reading' | 'assignment';
+    order?: number;
+  },
 ): Promise<number> {
   const response = await request.post(`${API_BASE}/chapters/`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -135,7 +155,8 @@ export async function seedChapter(
       content: options.content ?? [{ type: 'p', children: [{ text: 'Test chapter content for Playwright.' }] }],
       course: courseId,
       is_public: options.isPublic,
-      order: 1,
+      chapter_type: options.chapter_type ?? 'reading',
+      order: options.order ?? 1,
     },
   });
   if (!response.ok()) {
@@ -145,13 +166,29 @@ export async function seedChapter(
   return body.id as number;
 }
 
+export async function seedSyllabusChapter(
+  request: APIRequestContext,
+  accessToken: string,
+  courseId: number,
+): Promise<number> {
+  return seedChapter(request, accessToken, courseId, {
+    title: 'Course Syllabus',
+    isPublic: true,
+    chapter_type: 'syllabus',
+    content: [{ type: 'p', children: [{ text: 'Published syllabus for Playwright tests.' }] }],
+  });
+}
+
+export async function openNewReadingChapterForm(page: Page): Promise<void> {
+  await page.getByRole('main').getByRole('button', { name: 'Add New Reading' }).click();
+}
+
 export async function openChapterEditor(page: Page, chapterTitle: string): Promise<void> {
   const chapterCard = page
-    .locator('.rounded-xl')
+    .locator('[id^="chapter-"]')
     .filter({ has: page.getByRole('heading', { name: chapterTitle, exact: true }) })
     .first();
-  // Buttons: visibility toggle, move up, move down, edit, delete
-  await chapterCard.getByRole('button').nth(3).click();
+  await chapterCard.getByRole('button', { name: `Edit ${chapterTitle}` }).click();
 }
 
 export function joinCourseModal(page: Page) {
@@ -189,4 +226,178 @@ export async function enrollStudent(
   if (!response.ok()) {
     throw new Error(`Enroll failed: ${await response.text()}`);
   }
+}
+
+export function plateEditor(page: Page): Locator {
+  return page.locator('form [contenteditable="true"]').first();
+}
+
+export function plateBoldButton(page: Page): Locator {
+  return page.getByRole('button', { name: 'Bold', exact: true });
+}
+
+export function chapterFormSubmitButton(page: Page, label: string): Locator {
+  return page.locator('form').getByRole('button', { name: label });
+}
+
+export async function selectAllInPlateEditor(page: Page): Promise<void> {
+  const editor = plateEditor(page);
+  await editor.click();
+  await editor.press('Control+A');
+  const hasSelection = await editor.evaluate((root) => {
+    const selection = window.getSelection();
+    return Boolean(selection && !selection.isCollapsed && root.contains(selection.anchorNode));
+  });
+  if (!hasSelection) {
+    await editor.click({ clickCount: 3 });
+  }
+}
+
+async function pressBoldToolbarButton(page: Page): Promise<void> {
+  await plateBoldButton(page).dispatchEvent('mousedown');
+}
+
+export async function applyBoldInPlateEditor(page: Page): Promise<void> {
+  const editor = plateEditor(page);
+  await expect(async () => {
+    await selectAllInPlateEditor(page);
+    await pressBoldToolbarButton(page);
+    await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(editor.locator('strong.font-bold').first()).toBeVisible();
+  }).toPass();
+}
+
+export async function removeBoldInPlateEditor(page: Page, phrase?: string): Promise<void> {
+  const editor = plateEditor(page);
+  const boldLocator = phrase
+    ? editor.locator('strong.font-bold', { hasText: phrase })
+    : editor.locator('strong.font-bold');
+
+  if (phrase) {
+    await expect(boldLocator).toBeVisible();
+  }
+
+  await expect(async () => {
+    await selectAllInPlateEditor(page);
+    await pressBoldToolbarButton(page);
+    await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'false');
+    await expect(boldLocator).toHaveCount(0);
+  }).toPass();
+}
+
+export async function applyBoldViaShortcut(page: Page): Promise<void> {
+  const editor = plateEditor(page);
+  await expect(async () => {
+    await selectAllInPlateEditor(page);
+    await editor.press('Control+B');
+    if ((await editor.locator('strong.font-bold').count()) === 0) {
+      await selectAllInPlateEditor(page);
+      await pressBoldToolbarButton(page);
+    }
+    await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(editor.locator('strong.font-bold').first()).toBeVisible();
+  }).toPass();
+}
+
+export async function removeBoldViaShortcut(page: Page, phrase?: string): Promise<void> {
+  const editor = plateEditor(page);
+  const boldLocator = phrase
+    ? editor.locator('strong.font-bold', { hasText: phrase })
+    : editor.locator('strong.font-bold');
+
+  await selectAllInPlateEditor(page);
+  await editor.press('Control+B');
+  if ((await boldLocator.count()) > 0) {
+    await selectAllInPlateEditor(page);
+    await pressBoldToolbarButton(page);
+  }
+  await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'false');
+  if (phrase) {
+    await expect(boldLocator).toHaveCount(0);
+  }
+}
+
+export function contentJsonHasBoldMark(content: unknown[]): boolean {
+  return JSON.stringify(content).includes('"bold":true');
+}
+
+export function contentJsonLacksBoldMark(content: unknown[]): boolean {
+  return !contentJsonHasBoldMark(content);
+}
+
+export function boldTextInEditor(page: Page, text: string): Locator {
+  return plateEditor(page).locator('strong.font-bold', { hasText: text });
+}
+
+export async function expectEditorTextIsBold(page: Page, text: string): Promise<void> {
+  const editor = plateEditor(page);
+  await expect(editor.getByText(text)).toBeVisible();
+  await expect(async () => {
+    const isBold = await editor.evaluate((root, targetText) => {
+      const leaves = root.querySelectorAll('[data-slate-leaf="true"]');
+      for (const leaf of leaves) {
+        if (!leaf.textContent?.includes(targetText as string)) continue;
+        if (leaf.querySelector('strong, .font-bold, .slate-bold')) return true;
+        const fontWeight = window.getComputedStyle(leaf).fontWeight;
+        return fontWeight === '700' || fontWeight === 'bold';
+      }
+      return false;
+    }, text);
+    expect(isBold).toBe(true);
+  }).toPass();
+}
+
+export async function expectEditorTextIsNotBold(page: Page, text: string): Promise<void> {
+  await expect(boldTextInEditor(page, text)).toHaveCount(0);
+  await expect(plateEditor(page).getByText(text)).toBeVisible();
+}
+
+export async function fetchChapter(
+  request: APIRequestContext,
+  accessToken: string,
+  chapterId: number,
+): Promise<{ content: unknown[] }> {
+  const response = await request.get(`${API_BASE}/chapters/${chapterId}/`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok()) {
+    throw new Error(`Fetch chapter failed: ${await response.text()}`);
+  }
+  return response.json();
+}
+
+type PlateTextNode = { text?: string; bold?: boolean; children?: PlateTextNode[] };
+
+export function textNodeHasBoldMark(content: unknown[], text: string): boolean {
+  return contentIncludesBoldText(content, text);
+}
+
+function contentIncludesBoldText(content: unknown[], text: string): boolean {
+  const walk = (nodes: unknown[]): boolean => {
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue;
+      const entry = node as PlateTextNode;
+      if (entry.text?.includes(text) && entry.bold === true) return true;
+      if (entry.children && walk(entry.children)) return true;
+    }
+    return false;
+  };
+  return walk(content);
+}
+
+export function textNodeLacksBoldMark(content: unknown[], text: string): boolean {
+  let found = false;
+  const walk = (nodes: unknown[]): boolean => {
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue;
+      const entry = node as PlateTextNode;
+      if (entry.text?.includes(text)) {
+        found = true;
+        if (entry.bold === true) return false;
+      }
+      if (entry.children && !walk(entry.children)) return false;
+    }
+    return true;
+  };
+  return found && walk(content);
 }

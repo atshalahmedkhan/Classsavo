@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { test, expect } from '@playwright/test';
 import { API_BASE, fillField, loginViaUi, openChapterEditor, registerUser, seedChapter, seedInstructorCourse } from './helpers';
 

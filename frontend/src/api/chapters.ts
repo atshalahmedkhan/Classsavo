@@ -1,4 +1,4 @@
-import type { Value } from '@udecode/plate';
+import type { Value } from 'platejs';
 import client from './client';
 import type { Chapter, ChapterFile } from '../types';
 

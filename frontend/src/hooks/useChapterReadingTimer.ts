@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import type { Value } from '@udecode/plate';
+import type { Value } from 'platejs';
 import { progressApi } from '@/api/progress';
 import { countWordsFromPlateContent, getRequiredReadSeconds } from '@/lib/readingTime';
 

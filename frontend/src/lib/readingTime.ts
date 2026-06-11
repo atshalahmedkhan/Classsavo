@@ -1,4 +1,4 @@
-import type { Value } from '@udecode/plate';
+import type { Value } from 'platejs';
 
 const WORDS_PER_MINUTE = 200;
 const READ_THRESHOLD = 0.7;
