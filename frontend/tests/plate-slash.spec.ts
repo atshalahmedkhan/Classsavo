@@ -253,4 +253,56 @@ test.describe('Plate.js Slash Command', () => {
     await expect(editor.getByTestId('footnote-reference')).toBeVisible();
     await expect(editor.getByTestId('footnote-definition')).toBeVisible();
   });
+
+  test('instructor can insert callout from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashcallout');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash Callout Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/callout');
+    await page.getByTestId('slash-item-callout').click();
+
+    await expect(editor.getByTestId('callout-block')).toBeVisible();
+    await expect(page.getByTestId('slash-command-menu')).not.toBeVisible();
+  });
+
+  test('instructor can insert 3 columns from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashcolumns');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash Columns Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/columns');
+    await page.getByTestId('slash-item-column_group').click();
+
+    await expect(editor.getByTestId('column-group')).toBeVisible();
+    await expect(editor.getByTestId('column-item')).toHaveCount(3);
+    await expect(page.getByTestId('slash-command-menu')).not.toBeVisible();
+  });
+
+  test('instructor can insert excalidraw from slash menu', async ({ page, request }) => {
+    const instructor = await registerUser(request, 'instructor', 'slashexcal');
+    const { courseId } = await seedInstructorCourse(request, instructor.access, 'Slash Excalidraw Course');
+    await seedSyllabusChapter(request, instructor.access, courseId);
+    await loginViaUi(page, instructor.user.username, instructor.password, '/instructor');
+    await page.goto(`/instructor/courses/${courseId}`);
+    await openNewReadingChapterForm(page);
+
+    const editor = plateEditor(page);
+    await editor.click();
+    await editor.pressSequentially('/excalidraw');
+    await page.getByTestId('slash-item-excalidraw').click();
+
+    await expect(editor.getByTestId('excalidraw-block')).toBeVisible();
+    await expect(page.getByTestId('slash-command-menu')).not.toBeVisible();
+  });
 });

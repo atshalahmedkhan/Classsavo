@@ -10,12 +10,14 @@ export function CalloutElement({
     <PlateElement
       {...props}
       element={element}
-      className="my-2 flex gap-3 rounded-lg border border-[#e8ddd0] bg-[#faf6f1] p-4"
+      className="my-2 rounded-lg border border-[#e8ddd0] bg-[#faf6f1] p-4"
     >
-      <span className="text-lg leading-none" contentEditable={false}>
-        {element.icon ?? '💡'}
-      </span>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div data-testid="callout-block" className="flex gap-3">
+        <span className="text-lg leading-none" contentEditable={false}>
+          {element.icon ?? '💡'}
+        </span>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </PlateElement>
   );
 }

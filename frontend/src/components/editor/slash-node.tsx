@@ -91,7 +91,7 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
           keywords: ['toc'],
           onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.toc, { upsert: true }),
         },
-        { icon: <Columns3 className="h-4 w-4" />, value: 'columns', label: '3 columns', keywords: ['columns'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, '3 columns') },
+        { icon: <Columns3 className="h-4 w-4" />, value: KEYS.columnGroup, label: '3 columns', keywords: ['columns'], onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.columnGroup, { upsert: true }) },
         {
           icon: <SquareRadical className="h-4 w-4" />,
           value: KEYS.equation,
@@ -99,7 +99,7 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
           keywords: ['math'],
           onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.equation, { upsert: true }),
         },
-        { icon: <Footprints className="h-4 w-4" />, value: KEYS.excalidraw, label: 'Excalidraw', keywords: ['draw'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, 'Excalidraw') },
+        { icon: <Footprints className="h-4 w-4" />, value: KEYS.excalidraw, label: 'Excalidraw', keywords: ['draw'], onSelect: (editor: PlateEditor) => insertBlock(editor, KEYS.excalidraw, { upsert: true }) },
         { icon: <Code2 className="h-4 w-4" />, value: KEYS.codeDrawing, label: 'Code Drawing', keywords: ['diagram'], onSelect: (editor: PlateEditor) => insertInlinePlaceholder(editor, 'Code Drawing') },
       ],
     },

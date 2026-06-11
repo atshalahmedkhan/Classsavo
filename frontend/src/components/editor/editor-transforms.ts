@@ -1,7 +1,9 @@
 import { insertCallout } from '@platejs/callout';
 import { insertEmptyCodeBlock } from '@platejs/code-block';
 import { insertDate } from '@platejs/date';
+import { insertExcalidraw } from '@platejs/excalidraw';
 import { FootnoteReferencePlugin } from '@platejs/footnote/react';
+import { insertColumnGroup } from '@platejs/layout';
 import { insertEquation, insertInlineEquation } from '@platejs/math';
 import { insertToc } from '@platejs/toc';
 import { TablePlugin } from '@platejs/table/react';
@@ -29,9 +31,14 @@ const insertBlockMap: Record<string, (editor: PlateEditor) => void> = {
   [KEYS.blockquote]: (editor) => insertBlockquote(editor),
   [KEYS.toggle]: (editor) => insertToggle(editor),
   [KEYS.table]: (editor) => insertTableBlock(editor),
-  [KEYS.callout]: (editor) => insertCallout(editor, { select: true }),
+  [KEYS.callout]: (editor) =>
+    insertCallout(editor, { select: true, nextBlock: true }),
+  [KEYS.columnGroup]: (editor) =>
+    insertColumnGroup(editor, { columns: 3, select: true, nextBlock: true }),
   [KEYS.toc]: (editor) => insertToc(editor, { select: true, nextBlock: true }),
   [KEYS.equation]: (editor) => insertEquation(editor, { select: true }),
+  [KEYS.excalidraw]: (editor) =>
+    insertExcalidraw(editor, {}, { select: true, nextBlock: true }),
 };
 
 function insertBlockquote(editor: PlateEditor) {
@@ -102,6 +109,10 @@ export function insertBlock(
 
     editor.tf.focus();
   });
+}
+
+export function insertColumns3(editor: PlateEditor) {
+  insertBlock(editor, KEYS.columnGroup, { upsert: true });
 }
 
 export function insertInlineDate(editor: PlateEditor) {
