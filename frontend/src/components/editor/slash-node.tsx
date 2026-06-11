@@ -10,16 +10,20 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Info,
   List,
   ListOrdered,
   ListTodo,
   Pilcrow,
+  Quote,
   Sigma,
   Sparkles,
   SquareRadical,
+  Table,
   TableOfContents,
+  ToggleLeft,
 } from 'lucide-react';
-import { insertBlock, insertInlinePlaceholder } from './editor-transforms';
+import { insertBlock, insertInlineDate, insertInlinePlaceholder } from './editor-transforms';
 import {
   InlineCombobox,
   InlineComboboxContent,
@@ -67,6 +71,11 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
         { icon: <List className="h-4 w-4" />, value: KEYS.ul, label: 'Bulleted list', keywords: ['unordered', 'ul'] },
         { icon: <ListOrdered className="h-4 w-4" />, value: KEYS.ol, label: 'Numbered list', keywords: ['ordered', 'ol'] },
         { icon: <ListTodo className="h-4 w-4" />, value: KEYS.listTodo, label: 'To-do list', keywords: ['todo', 'task'] },
+        { icon: <ToggleLeft className="h-4 w-4" />, value: KEYS.toggle, label: 'Toggle', keywords: ['collapse', 'accordion'] },
+        { icon: <Code2 className="h-4 w-4" />, value: KEYS.codeBlock, label: 'Code Block', keywords: ['code', 'snippet'] },
+        { icon: <Table className="h-4 w-4" />, value: KEYS.table, label: 'Table', keywords: ['grid', 'rows'] },
+        { icon: <Quote className="h-4 w-4" />, value: KEYS.blockquote, label: 'Blockquote', keywords: ['quote'] },
+        { icon: <Info className="h-4 w-4" />, value: KEYS.callout, label: 'Callout', keywords: ['note', 'info'] },
       ].map((item) => ({
         ...item,
         onSelect: (editor) => insertBlock(editor, item.value, { upsert: true }),
@@ -88,13 +97,28 @@ function createSlashGroups(openAi: () => void): SlashGroup[] {
     {
       group: 'Inline',
       items: [
-        { icon: <Calendar className="h-4 w-4" />, value: KEYS.date, label: 'Date', keywords: ['calendar'] },
-        { icon: <Sigma className="h-4 w-4" />, value: 'footnote', label: 'Footnote', keywords: ['note'] },
-        { icon: <SquareRadical className="h-4 w-4" />, value: KEYS.inlineEquation, label: 'Inline Equation', keywords: ['math'] },
-      ].map((item) => ({
-        ...item,
-        onSelect: (editor) => insertInlinePlaceholder(editor, item.label),
-      })),
+        {
+          icon: <Calendar className="h-4 w-4" />,
+          value: KEYS.date,
+          label: 'Date',
+          keywords: ['calendar', 'today'],
+          onSelect: (editor) => insertInlineDate(editor),
+        },
+        {
+          icon: <Sigma className="h-4 w-4" />,
+          value: 'footnote',
+          label: 'Footnote',
+          keywords: ['note'],
+          onSelect: (editor) => insertInlinePlaceholder(editor, 'Footnote'),
+        },
+        {
+          icon: <SquareRadical className="h-4 w-4" />,
+          value: KEYS.inlineEquation,
+          label: 'Inline Equation',
+          keywords: ['math'],
+          onSelect: (editor) => insertInlinePlaceholder(editor, 'Inline Equation'),
+        },
+      ],
     },
   ];
 }

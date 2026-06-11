@@ -1,3 +1,7 @@
+import { insertCallout } from '@platejs/callout';
+import { insertEmptyCodeBlock } from '@platejs/code-block';
+import { insertDate } from '@platejs/date';
+import { TablePlugin } from '@platejs/table/react';
 import type { PlateEditor } from 'platejs/react';
 import { KEYS, PathApi, type TElement } from 'platejs';
 
@@ -11,11 +15,43 @@ const insertList = (editor: PlateEditor, type: string) => {
   );
 };
 
-const insertBlockMap: Record<string, (editor: PlateEditor, type: string) => void> = {
-  [KEYS.listTodo]: insertList,
-  [KEYS.ol]: insertList,
-  [KEYS.ul]: insertList,
+const inPlaceBlockInserts = new Set<string>([KEYS.codeBlock]);
+
+const insertBlockMap: Record<string, (editor: PlateEditor) => void> = {
+  [KEYS.listTodo]: (editor) => insertList(editor, KEYS.listTodo),
+  [KEYS.ol]: (editor) => insertList(editor, KEYS.ol),
+  [KEYS.ul]: (editor) => insertList(editor, KEYS.ul),
+  [KEYS.codeBlock]: (editor) =>
+    insertEmptyCodeBlock(editor, { insertNodesOptions: { select: true } }),
+  [KEYS.blockquote]: (editor) => insertBlockquote(editor),
+  [KEYS.toggle]: (editor) => insertToggle(editor),
+  [KEYS.table]: (editor) => insertTableBlock(editor),
+  [KEYS.callout]: (editor) => insertCallout(editor, { select: true }),
 };
+
+function insertBlockquote(editor: PlateEditor) {
+  editor.tf.insertNodes(
+    editor.api.create.block({
+      type: KEYS.blockquote,
+      children: [{ text: '' }],
+    }),
+    { select: true },
+  );
+}
+
+function insertToggle(editor: PlateEditor) {
+  editor.tf.insertNodes(
+    editor.api.create.block({
+      type: KEYS.toggle,
+      children: [editor.api.create.block({ type: KEYS.p, children: [{ text: '' }] })],
+    }),
+    { select: true },
+  );
+}
+
+function insertTableBlock(editor: PlateEditor) {
+  editor.getTransforms(TablePlugin).insert.table({ rowCount: 3, colCount: 3 }, { select: true });
+}
 
 type InsertBlockOptions = {
   upsert?: boolean;
@@ -42,8 +78,8 @@ export function insertBlock(
     }
 
     if (type in insertBlockMap) {
-      insertBlockMap[type](editor, type);
-      if (!isSameBlockType && isCurrentBlockEmpty) {
+      insertBlockMap[type](editor);
+      if (!isSameBlockType && isCurrentBlockEmpty && !inPlaceBlockInserts.has(type)) {
         editor.tf.removeNodes({ at: path });
       }
     } else if (isCurrentBlockEmpty) {
@@ -61,6 +97,11 @@ export function insertBlock(
 
     editor.tf.focus();
   });
+}
+
+export function insertInlineDate(editor: PlateEditor) {
+  insertDate(editor, { select: true });
+  editor.tf.focus();
 }
 
 export function insertInlinePlaceholder(editor: PlateEditor, label: string) {

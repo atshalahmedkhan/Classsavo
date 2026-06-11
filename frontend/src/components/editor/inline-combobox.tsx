@@ -246,6 +246,51 @@ export function InlineComboboxInput({
 
   const { inputProps, showTrigger, trigger } = context;
 
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLSpanElement>) {
+    if (store) {
+      const { items, activeId } = store.getState();
+      if (items.length > 0) {
+        const currentIndex = items.findIndex((item) => item.id === activeId);
+
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          if (currentIndex >= items.length - 1) {
+            store.setActiveId(store.last());
+          } else {
+            store.setActiveId(items[currentIndex + 1]!.id);
+          }
+          return;
+        }
+
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          if (currentIndex <= 0) {
+            store.setActiveId(store.first());
+          } else {
+            store.setActiveId(items[currentIndex - 1]!.id);
+          }
+          return;
+        }
+
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          const activeItem = items.find((item) => item.id === activeId);
+          const target =
+            activeItem?.element ??
+            document.querySelector('[data-testid="slash-command-menu"] [data-active-item="true"]');
+          if (target instanceof HTMLElement) {
+            target.dispatchEvent(
+              new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    inputProps.onKeyDown?.(event);
+  }
+
   return (
     <>
       {showTrigger && <span className="text-[#6b5c52]">{trigger}</span>}
@@ -258,6 +303,7 @@ export function InlineComboboxInput({
           suppressContentEditableWarning
           {...inputProps}
           {...props}
+          onKeyDown={handleInputKeyDown}
         />
       </span>
     </>
