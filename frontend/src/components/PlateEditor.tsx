@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from 'react';
 import type { Value } from 'platejs';
 import {
   Plate,
@@ -9,7 +10,8 @@ import {
 } from 'platejs/react';
 import { Bold } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EDITOR_PLUGINS } from './editor/plate-plugins';
+import { AiAssistantPanel } from './editor/AiAssistantPanel';
+import { createEditorPlugins } from './editor/plate-plugins';
 
 const DEFAULT_VALUE: Value = [
   {
@@ -25,7 +27,6 @@ interface PlateEditorProps {
   value: Value;
   onChange: (value: Value) => void;
   readOnly?: boolean;
-  /** Change this to reset the editor (e.g. chapter id when editing). */
   editorKey?: string | number;
 }
 
@@ -33,6 +34,7 @@ function useBoldToggle(onValueChange: (value: Value) => void) {
   const editor = useEditorRef();
 
   return () => {
+    editor.tf.focus();
     editor.tf.toggleMark('bold');
     onValueChange(editor.children as Value);
   };
@@ -71,22 +73,29 @@ function PlateToolbar({ onValueChange }: { onValueChange: (value: Value) => void
 function PlateEditable({
   readOnly,
   onValueChange,
+  onOpenAi,
 }: {
   readOnly: boolean;
   onValueChange: (value: Value) => void;
+  onOpenAi: () => void;
 }) {
   const toggleBold = useBoldToggle(onValueChange);
 
   return (
     <PlateContent
       readOnly={readOnly}
+      data-testid="plate-editor-content"
       className={CONTENT_CLASSNAME}
-      placeholder="Write chapter content... Type / for commands"
+      placeholder="Write chapter content... Type / for blocks or Ctrl+J for AI"
       onKeyDown={(event) => {
         if (readOnly) return;
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
           event.preventDefault();
           toggleBold();
+        }
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'j') {
+          event.preventDefault();
+          onOpenAi();
         }
       }}
     />
@@ -99,17 +108,23 @@ export function PlateEditor({
   readOnly = false,
   editorKey = 'default',
 }: PlateEditorProps) {
+  const [aiOpen, setAiOpen] = useState(false);
+  const openAi = useCallback(() => setAiOpen(true), []);
+  const closeAi = useCallback(() => setAiOpen(false), []);
+
+  const plugins = useMemo(() => createEditorPlugins(openAi), [openAi]);
+
   const editor = usePlateEditor(
     {
       id: `plate-${editorKey}`,
-      plugins: EDITOR_PLUGINS,
+      plugins,
       value: value.length > 0 ? value : DEFAULT_VALUE,
     },
-    [editorKey],
+    [editorKey, plugins],
   );
 
   return (
-    <div className="rounded-lg border border-[#e8ddd0] bg-white">
+    <div className="relative overflow-visible rounded-lg border border-[#e8ddd0] bg-white">
       <Plate
         editor={editor}
         onChange={({ value: nextValue }) => {
@@ -119,7 +134,8 @@ export function PlateEditor({
         }}
       >
         {!readOnly && <PlateToolbar onValueChange={onChange} />}
-        <PlateEditable readOnly={readOnly} onValueChange={onChange} />
+        <PlateEditable readOnly={readOnly} onValueChange={onChange} onOpenAi={openAi} />
+        {!readOnly && <AiAssistantPanel open={aiOpen} onClose={closeAi} />}
       </Plate>
     </div>
   );

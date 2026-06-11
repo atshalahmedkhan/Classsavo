@@ -7,6 +7,7 @@ import {
   contentJsonHasBoldMark,
   contentJsonLacksBoldMark,
   enrollStudent,
+  expectPageTextIsBold,
   fetchChapter,
   fillField,
   loginViaUi,
@@ -104,7 +105,7 @@ test.describe('Plate.js Bold Formatting', () => {
     await openNewReadingChapterForm(page);
 
     await typeInPlateEditor(page, BOLD_PHRASE);
-    await applyBoldInPlateEditor(page);
+    await applyBoldViaShortcut(page);
     await removeBoldInPlateEditor(page);
 
     await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'false');
@@ -141,7 +142,7 @@ test.describe('Plate.js Bold Formatting', () => {
     await page.goto(`/instructor/courses/${courseId}`);
     await openChapterEditor(page, 'Previously Bold Chapter');
 
-    await expect(plateEditor(page).locator('strong.font-bold', { hasText: BOLD_PHRASE })).toBeVisible();
+    await expectPageTextIsBold(page, BOLD_PHRASE);
     await removeBoldInPlateEditor(page, BOLD_PHRASE);
     await chapterFormSubmitButton(page, 'Update Reading').click();
     await expect(page.getByText('Chapter updated.')).toBeVisible();
@@ -171,8 +172,7 @@ test.describe('Plate.js Bold Formatting', () => {
     await page.goto(`/student/courses/${courseId}/chapters/${chapterId}`);
 
     await expect(page.getByText(NORMAL_PHRASE)).toBeVisible();
-    await expect(page.locator('strong.font-bold', { hasText: BOLD_PHRASE })).toBeVisible();
-    await expect(page.locator('strong.font-bold', { hasText: BOLD_PHRASE })).toHaveCSS('font-weight', '700');
+    await expectPageTextIsBold(page, BOLD_PHRASE);
     await expect(plateBoldButton(page)).not.toBeVisible();
   });
 

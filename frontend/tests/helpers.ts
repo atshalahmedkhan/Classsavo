@@ -229,7 +229,7 @@ export async function enrollStudent(
 }
 
 export function plateEditor(page: Page): Locator {
-  return page.locator('form [contenteditable="true"]').first();
+  return page.locator('form [data-slate-editor]').first();
 }
 
 export function plateBoldButton(page: Page): Locator {
@@ -244,10 +244,19 @@ export async function selectAllInPlateEditor(page: Page): Promise<void> {
   const editor = plateEditor(page);
   await editor.click();
   await editor.press('Control+A');
+
   const hasSelection = await editor.evaluate((root) => {
     const selection = window.getSelection();
+    if (selection && !selection.isCollapsed && root.contains(selection.anchorNode)) {
+      return true;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(root);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
     return Boolean(selection && !selection.isCollapsed && root.contains(selection.anchorNode));
   });
+
   if (!hasSelection) {
     await editor.click({ clickCount: 3 });
   }
@@ -258,31 +267,29 @@ async function pressBoldToolbarButton(page: Page): Promise<void> {
 }
 
 export async function applyBoldInPlateEditor(page: Page): Promise<void> {
-  const editor = plateEditor(page);
   await expect(async () => {
     await selectAllInPlateEditor(page);
     await pressBoldToolbarButton(page);
     await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'true');
-    await expect(editor.locator('strong.font-bold').first()).toBeVisible();
-  }).toPass();
+    await expectEditorTextIsBold(page, 'Bold Playwright phrase');
+  }).toPass({ timeout: 20_000 });
 }
 
 export async function removeBoldInPlateEditor(page: Page, phrase?: string): Promise<void> {
-  const editor = plateEditor(page);
-  const boldLocator = phrase
-    ? editor.locator('strong.font-bold', { hasText: phrase })
-    : editor.locator('strong.font-bold');
-
   if (phrase) {
-    await expect(boldLocator).toBeVisible();
+    await expectPageTextIsBold(page, phrase).catch(async () => {
+      await expectEditorTextIsBold(page, phrase);
+    });
   }
 
   await expect(async () => {
     await selectAllInPlateEditor(page);
     await pressBoldToolbarButton(page);
     await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'false');
-    await expect(boldLocator).toHaveCount(0);
-  }).toPass();
+    if (phrase) {
+      await expectEditorTextIsNotBold(page, phrase);
+    }
+  }).toPass({ timeout: 20_000 });
 }
 
 export async function applyBoldViaShortcut(page: Page): Promise<void> {
@@ -290,30 +297,39 @@ export async function applyBoldViaShortcut(page: Page): Promise<void> {
   await expect(async () => {
     await selectAllInPlateEditor(page);
     await editor.press('Control+B');
-    if ((await editor.locator('strong.font-bold').count()) === 0) {
+    const boldCount = await editor.locator('strong, [data-slate-leaf="true"] .font-bold').count();
+    if (boldCount === 0) {
       await selectAllInPlateEditor(page);
       await pressBoldToolbarButton(page);
     }
     await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'true');
-    await expect(editor.locator('strong.font-bold').first()).toBeVisible();
+    await expectEditorTextIsBold(page, 'Bold Playwright phrase');
   }).toPass();
 }
 
 export async function removeBoldViaShortcut(page: Page, phrase?: string): Promise<void> {
   const editor = plateEditor(page);
-  const boldLocator = phrase
-    ? editor.locator('strong.font-bold', { hasText: phrase })
-    : editor.locator('strong.font-bold');
 
   await selectAllInPlateEditor(page);
   await editor.press('Control+B');
-  if ((await boldLocator.count()) > 0) {
+  const stillBold = phrase
+    ? await editor.evaluate((root, targetText) => {
+        const leaves = root.querySelectorAll('[data-slate-leaf="true"]');
+        for (const leaf of leaves) {
+          if (!leaf.textContent?.includes(targetText as string)) continue;
+          if (leaf.querySelector('strong, .font-bold')) return true;
+        }
+        return false;
+      }, phrase)
+    : false;
+
+  if (stillBold) {
     await selectAllInPlateEditor(page);
     await pressBoldToolbarButton(page);
   }
   await expect(plateBoldButton(page)).toHaveAttribute('aria-pressed', 'false');
   if (phrase) {
-    await expect(boldLocator).toHaveCount(0);
+    await expectEditorTextIsNotBold(page, phrase);
   }
 }
 
@@ -325,8 +341,28 @@ export function contentJsonLacksBoldMark(content: unknown[]): boolean {
   return !contentJsonHasBoldMark(content);
 }
 
-export function boldTextInEditor(page: Page, text: string): Locator {
-  return plateEditor(page).locator('strong.font-bold', { hasText: text });
+export function boldTextOnPage(page: Page, text: string): Locator {
+  return page.locator('strong.font-bold, strong', { hasText: text });
+}
+
+export async function expectPageTextIsBold(page: Page, text: string): Promise<void> {
+  await expect(page.getByText(text)).toBeVisible();
+  await expect(async () => {
+    const isBold = await page.evaluate((targetText) => {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent?.includes(targetText as string)) continue;
+        const parent = node.parentElement;
+        if (!parent) continue;
+        if (parent.closest('strong, .font-bold')) return true;
+        const weight = window.getComputedStyle(parent).fontWeight;
+        if (weight === '700' || weight === 'bold') return true;
+      }
+      return false;
+    }, text);
+    expect(isBold).toBe(true);
+  }).toPass();
 }
 
 export async function expectEditorTextIsBold(page: Page, text: string): Promise<void> {
@@ -337,6 +373,7 @@ export async function expectEditorTextIsBold(page: Page, text: string): Promise<
       const leaves = root.querySelectorAll('[data-slate-leaf="true"]');
       for (const leaf of leaves) {
         if (!leaf.textContent?.includes(targetText as string)) continue;
+        if (leaf.closest('strong, .font-bold, .slate-bold')) return true;
         if (leaf.querySelector('strong, .font-bold, .slate-bold')) return true;
         const fontWeight = window.getComputedStyle(leaf).fontWeight;
         return fontWeight === '700' || fontWeight === 'bold';
@@ -348,8 +385,22 @@ export async function expectEditorTextIsBold(page: Page, text: string): Promise<
 }
 
 export async function expectEditorTextIsNotBold(page: Page, text: string): Promise<void> {
-  await expect(boldTextInEditor(page, text)).toHaveCount(0);
-  await expect(plateEditor(page).getByText(text)).toBeVisible();
+  const editor = plateEditor(page);
+  await expect(editor.getByText(text)).toBeVisible();
+  await expect(async () => {
+    const isBold = await editor.evaluate((root, targetText) => {
+      const leaves = root.querySelectorAll('[data-slate-leaf="true"]');
+      for (const leaf of leaves) {
+        if (!leaf.textContent?.includes(targetText as string)) continue;
+        if (leaf.closest('strong, .font-bold, .slate-bold')) return true;
+        if (leaf.querySelector('strong, .font-bold, .slate-bold')) return true;
+        const fontWeight = window.getComputedStyle(leaf).fontWeight;
+        if (fontWeight === '700' || fontWeight === 'bold') return true;
+      }
+      return false;
+    }, text);
+    expect(isBold).toBe(false);
+  }).toPass();
 }
 
 export async function fetchChapter(

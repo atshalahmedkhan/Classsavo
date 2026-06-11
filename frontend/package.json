@@ -12,6 +12,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@ariakit/react": "^0.4.29",
     "@platejs/basic-nodes": "^53.0.0",
     "@platejs/combobox": "^53.0.0",
     "@platejs/list": "^53.0.2",
